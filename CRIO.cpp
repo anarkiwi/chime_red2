@@ -1,0 +1,229 @@
+// Copyright 2019 Josh Bailey (josh@vandervecken.com)
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#include "pins.h"
+
+// TODO: must be installed from https://github.com/greiman/DigitalIO-beta to get Due support.
+#include "DigitalIO.h"
+
+DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
+DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
+DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
+DigitalPin<fixedVarPulseInPin> _fixedVarInPin(INPUT, LOW);
+DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
+
+// TODO: need LiquidCrystalFast from https://github.com/Swap-File/tron-suit/tree/master/Helmet/Software/Libraries/LiquidCrystalFast
+// This library uses the rw pin to determine when a write has been done rather than just delaying.
+// $ git clone https://github.com/Swap-File/tron-suit
+// $ ln -s tron-suit/Helmet/Software/Libraries/LiquidCrystalFast .
+#include <LiquidCrystalFast.h>
+
+#include "CRIO.h"
+#include "constants.h"
+
+LiquidCrystalFast lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
+
+
+CRIO::CRIO() {
+  scheduled = false;
+  _oneShotPulseUs = 0;
+  _multiShotPulses = 0;
+  _lcdRow = 0;
+  _lcdCol = 0;
+  _lastLcdRow = 0;
+  _lastLcdCol = 0;
+  _pulseState = false;
+  pw = pulseWindowUs;
+  maxPitch = maxMidiPitch;
+  maxChargePct = 100;
+  bzero(&potPinState, sizeof(potPinState));
+  _maxChargePot = potPinState;
+  _maxChargePot->pin = A9;
+  _prPot = potPinState + 1;
+  _prPot->pin = A10;
+  _pwPot = potPinState + 2;
+  _pwPot->pin = A11;
+  _nextPotPin = 0;
+  _potSampleCount = 0;
+  _ticksSinceLastPulse = 0;
+  analogReadResolution(analogBits);
+  REG_ADC_MR = (REG_ADC_MR & 0xFFF0FFFF) | 0x00020000; // ADC startup time
+  REG_ADC_MR = (REG_ADC_MR & 0xFFFFFF0F) | 0x00000080; // enable FREERUN mode
+  memset(&_lcdBuffer, ' ', sizeof(_lcdBuffer));
+  memset(&_lcdFrameBuffer, ' ', sizeof(_lcdFrameBuffer));
+  _lcdLine1 = _lcdBuffer[1];
+#ifdef CR_UI
+  lcd.begin(lcdWidth, lcdLines);
+  lcd.noCursor();
+  lcd.clear();
+  lcd.home();
+#endif
+}
+
+bool CRIO::percussionEnabled() {
+#ifdef CR_UI
+  return _percussionEnableInPin.read();
+#else
+  return true;
+#endif
+}
+
+bool CRIO::fixedPulseEnabled() {
+#ifdef CR_UI
+  return _fixedVarInPin.read();
+#else
+  return false;
+#endif
+}
+
+inline void CRIO::pulseOn() {
+  _speakerOutPin.high();
+  _diagOutPin.high();
+  _coilOutPin.high();
+  _pulseState = true;
+}
+
+inline void CRIO::pulseOff() {
+  _coilOutPin.low();
+  _diagOutPin.low();
+  _speakerOutPin.low();
+  _pulseState = false;
+}
+
+void CRIO::oneShotPulse() {
+  if (_oneShotPulseUs) {
+    pulseOn();
+    delayMicroseconds(_oneShotPulseUs);
+    pulseOff();
+    _oneShotPulseUs = 0;
+  }
+}
+
+void CRIO::handlePulse() {
+  ++_ticksSinceLastPulse;
+  if (scheduled) {
+    return;
+  }
+  if (_multiShotPulses == 0) {
+    pulseOff();
+    return;
+  }
+  pulseOn();
+  --_multiShotPulses;
+}
+
+void CRIO::startPulse() {
+  if (scheduled) {
+    _ticksSinceLastPulse = 0;
+    if (_multiShotPulses) {
+      if (_oneShotPulseUs) {
+        if (_oneShotPulseUs >= (masterClockPeriodUs - oneShotPulsePadUs)) {
+          ++_multiShotPulses;
+        } else if (_oneShotPulseUs > oneShotPulsePadUs) {
+          delayMicroseconds((masterClockPeriodUs - _oneShotPulseUs) - oneShotPulsePadUs);
+          pulseOn();
+        }
+        _oneShotPulseUs = 0;
+      }
+    } else {
+      oneShotPulse();
+    }
+    scheduled = false;
+  }
+}
+
+void CRIO::schedulePulse(cr_fp_t pulseUs) {
+  if (scheduled) {
+    return;
+  }
+  if (pulseUs == 0) {
+    return;
+  }
+  if (_ticksSinceLastPulse < pulseGuardTicks) {
+    return;
+  }
+  scheduled = true;
+  _oneShotPulseUs = pulseUs.getInteger();
+  if (_oneShotPulseUs >= cr_pulse_t(masterClockPeriodUs)) {
+    _multiShotPulses = _oneShotPulseUs / masterClockPeriodUs;
+    _oneShotPulseUs = _oneShotPulseUs % masterClockPeriodUs;
+  } else {
+    _multiShotPulses = 0;
+  }
+}
+
+inline cr_fp_t _scalePot(uint8_t pin) {
+  uint16_t sample = analogRead(pin);
+  sample = sample >> 2 << 2;
+  return cr_fp_t(1) - (cr_fp_t(sample) * maxAnalogRead);
+}
+
+void CRIO::pollPots() {
+#ifdef CR_UI
+  potPinType *potPin = potPinState + _nextPotPin;
+  cr_fp_t sampleVal = _scalePot(potPin->pin);
+  if (sampleVal != potPin->currVal) {
+    if (sampleVal != potPin->newVal) {
+      potPin->newVal = sampleVal;
+      potPin->newValSamples = 0;
+    } else if (++(potPin->newValSamples) == potSampleWindow - 1) {
+      potPin->currVal = sampleVal;
+    }
+  }
+  if (++_potSampleCount == potSampleWindow) {
+    _potSampleCount = 0;
+    if (++_nextPotPin == potPins) {
+      _nextPotPin = 0;
+    }
+  }
+#endif
+}
+
+void CRIO::updateLcd() {
+#ifdef CR_UI
+  char c = _lcdBuffer[_lcdRow][_lcdCol];
+  if (c == 0) {
+    c = ' ';
+  }
+  char *fc = &(_lcdFrameBuffer[_lcdRow][_lcdCol]);
+  if (*fc != c) {
+    *fc = c;
+    // save a setcursor if last write positioned us.
+    if (!(_lastLcdRow == _lcdRow && _lcdCol == _lastLcdCol +1)) {
+      lcd.setCursor(_lcdCol, _lcdRow);
+    }
+    lcd.write(c);
+    _lastLcdRow = _lcdRow;
+    _lastLcdCol = _lcdCol;
+  }
+  if (++_lcdCol == lcdWidth) {
+    _lcdCol = 0;
+    if (++_lcdRow == lcdLines) {
+      _lcdRow = 0;
+    }
+  }
+#endif
+}
+
+void CRIO::updateCoeff() {
+#ifdef CR_UI
+  pw = _pwPot->currVal * pulseWindowUs;
+  maxPitch = roundFixed(_prPot->currVal * cr_fp_t(maxMidiPitch)).getInteger();
+  maxChargePct = _maxChargePot->currVal * 100;
+#endif
+}
+
+void CRIO::updateLcdCoeff() {
+  itoa(pitchToHz[maxPitch].getInteger(), _lcdLine1, 10);
+  *(_lcdLine1 + 4) = 'H';
+  *(_lcdLine1 + 5) = 'z';
+  itoa(pw.getInteger(), _lcdLine1+7, 10);
+  *(_lcdLine1 + 10) = 'u';
+  itoa(maxChargePct.getInteger(), _lcdLine1+12, 10);
+  *(_lcdLine1 + 15) = '%';
+}
