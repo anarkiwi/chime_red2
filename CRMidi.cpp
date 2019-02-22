@@ -94,11 +94,11 @@ bool CRMidi::HandleControl() {
 }
 
 void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
-  if (!ChannelEnabled(channel))  {
-    return;
-  }
   if (velocity == 0) {
     handleNoteOff(channel, note);
+  }
+  if (!ChannelEnabled(channel))  {
+    return;
   }
   if (note > _crio->maxPitch) {
     return;
@@ -119,7 +119,7 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
 }
 
 void CRMidi::handleNoteOff(byte channel, byte note) {
-    if (!ChannelEnabled(channel))  {
+  if (!ChannelEnabled(channel))  {
     return;
   }
   if (note > _crio->maxPitch) {
