@@ -39,10 +39,11 @@ MidiChannel *CRMidi::getOscillatorChannel(Oscillator *oscillator) {
 }
 
 MidiChannel *CRMidi::ChannelEnabled(byte channel) {
-  if (channel > maxMidiChannel) {
-    return NULL;
-  }
-  if (channel == PERC_CHAN && !_crio->percussionEnabled()) {
+  if (channel == PERC_CHAN) {
+    if (!_crio->percussionEnabled()) {
+       return NULL;
+    }
+  } else if (channel > maxMidiChannel) {
     return NULL;
   }
   return GET_CHAN(channel);
