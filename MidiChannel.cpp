@@ -15,8 +15,8 @@ MidiChannel::MidiChannel() {
 }
 
 void MidiChannel::ResetCC() {
+  bend = 0;
   _pitchBendRange = 12;
-  SetBend(0, NULL, 0);
   attack = 0;
   decay = 0;
   sustain = maxMidiVal;
@@ -25,6 +25,7 @@ void MidiChannel::ResetCC() {
   pulserSpread = 0;
   tremoloRange = 0;
   coarseModulation = 0;
+  SetBend(0, NULL, 0);
 }
 
 void MidiChannel::Reset() {
@@ -52,39 +53,37 @@ void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *o
     return;
   }
   bend = newBend;
-  _pitchBendScale = cr_fp_t(bend) / maxMidiPitchBend;
-  _pitchBendDiff = _pitchBendRange;
-  if (bend < 0) {
-    _pitchBendDiff = -_pitchBendDiff;
-    _pitchBendScale = -_pitchBendScale;
+  if (bend == 0) {
+    _pitchBendScale = 0;
+    _pitchBendDiff = 0;
+  } else {
+    _pitchBendScale = cr_fp_t(abs(bend)) / maxMidiPitchBend;
+    if (bend > 0) {
+      _pitchBendDiff = _pitchBendRange;
+    } else {
+      _pitchBendDiff = -_pitchBendRange;
+    }
   }
+  cr_fp_t maxHz = pitchToHz[maxPitch];
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
-    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch), pitchToHz[maxPitch], oc);
+    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch), maxHz, oc);
   }
 }
 
 cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch) {
   cr_fp_t hz = pitchToHz[midiNote->pitch];
-  if (bend) {
-    int8_t windowPitch = midiNote->pitch;
-    if (_pitchBendDiff < 0) {
-      windowPitch += _pitchBendDiff;
-      if (windowPitch < 0) {
-        windowPitch = 0;
-      }
-    } else {
-      if (windowPitch > (maxPitch - _pitchBendDiff)) {
-        windowPitch = maxPitch;
-      } else {
-        windowPitch += _pitchBendDiff;
-      }
+  if (_pitchBendScale > 0) {
+    int16_t windowPitch = midiNote->pitch + _pitchBendDiff;
+    if (windowPitch < 0) {
+      windowPitch = 0;
+    } else if (windowPitch > maxPitch) {
+      windowPitch = maxPitch;
     }
-    cr_fp_t window = _pitchBendScale * (pitchToHz[windowPitch] - hz);
-    return hz + window;
-  } else {
-    return hz;
+    cr_fp_t window = _pitchBendScale * (pitchToHz[(uint8_t)windowPitch] - hz);
+    hz += window;
   }
+  return hz;
 }
 
 void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiNote *midiNote, OscillatorController *oc) {

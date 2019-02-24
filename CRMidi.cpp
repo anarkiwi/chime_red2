@@ -38,14 +38,14 @@ MidiChannel *CRMidi::getOscillatorChannel(Oscillator *oscillator) {
   return _oscillatorChannelMap[oscillator->index];
 }
 
-bool CRMidi::ChannelEnabled(byte channel) {
-  if (channel == PERC_CHAN) {
-    return _crio->percussionEnabled();
-  }
+MidiChannel *CRMidi::ChannelEnabled(byte channel) {
   if (channel > maxMidiChannel) {
-    return false;
+    return NULL;
   }
-  return true;
+  if (channel == PERC_CHAN && !_crio->percussionEnabled()) {
+    return NULL;
+  }
+  return GET_CHAN(channel);
 }
 
 void CRMidi::ResetChannel(MidiChannel *midiChannel) {
@@ -93,17 +93,21 @@ bool CRMidi::HandleControl() {
   return complete;
 }
 
+MidiChannel *CRMidi::ChannelNoteValid(byte channel, byte note) {
+  if (note > _crio->maxPitch) {
+    return NULL;
+  }
+  return ChannelEnabled(channel);
+}
+
 void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
   if (velocity == 0) {
     handleNoteOff(channel, note);
   }
-  if (!ChannelEnabled(channel))  {
+  MidiChannel *midiChannel = ChannelNoteValid(channel, note);
+  if (midiChannel == NULL) {
     return;
   }
-  if (note > _crio->maxPitch) {
-    return;
-  }
-  MidiChannel *midiChannel = GET_CHAN(channel);
   if (midiChannel->ResetNote(note)) {
     return;
   }
@@ -119,29 +123,26 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
 }
 
 void CRMidi::handleNoteOff(byte channel, byte note) {
-  if (!ChannelEnabled(channel))  {
+  MidiChannel *midiChannel = ChannelNoteValid(channel, note);
+  if (midiChannel == NULL) {
     return;
   }
-  if (note > _crio->maxPitch) {
-    return;
-  }
-  MidiChannel *midiChannel = GET_CHAN(channel);
   midiChannel->ReleaseNote(note);
 }
 
 void CRMidi::handlePitchBend(byte channel, int bend) {
-  if (!ChannelEnabled(channel))  {
+  MidiChannel *midiChannel = ChannelEnabled(channel);
+  if (midiChannel == NULL) {
     return;
   }
-  MidiChannel *midiChannel = GET_CHAN(channel);
   midiChannel->SetBend(bend, _crio->maxPitch, _oc);
 }
 
 void CRMidi::handleControlChange(byte channel, byte number, byte value) {
-  if (!ChannelEnabled(channel))  {
+  MidiChannel *midiChannel = ChannelEnabled(channel);
+  if (midiChannel == NULL) {
     return;
   }
-  MidiChannel *midiChannel = GET_CHAN(channel);
   switch (number) {
     case 123:
       ResetChannel(midiChannel);
@@ -171,7 +172,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       _oc->tremoloLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
       break;
     case 20: {
-        if (value) {
+      if (value) {
           SET_CC(midiChannel->pulserCount, value);
         }
       }

@@ -29,7 +29,8 @@ class CRMidi {
     bool HandleControl();
     MidiChannel *getOscillatorChannel(Oscillator *oscillator);
   private:
-    bool ChannelEnabled(byte channel);
+    MidiChannel *ChannelNoteValid(byte channel, byte note);
+    MidiChannel *ChannelEnabled(byte channel);
     void ExpireNotes(MidiChannel *midiChannel);
     MidiNote *GetFreeNote();
     void ReturnFreeNote(MidiNote *midiNote);
