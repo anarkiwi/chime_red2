@@ -45,7 +45,7 @@ class MidiChannel {
     int8_t _pitchBendDiff;
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
-    MidiNote *_noteMap[maxMidiPitch];
+    MidiNote *_noteMap[maxMidiPitch+1];
 };
 
 #endif
