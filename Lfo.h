@@ -12,6 +12,7 @@
 
 #include "types.h"
 #include "constants.h"
+#include "wavetable.h"
 
 class Lfo {
  public:
