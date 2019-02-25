@@ -8,8 +8,8 @@
 
 #include "pins.h"
 
-// TODO: must be installed from https://github.com/greiman/DigitalIO-beta to get Due support.
-#include "DigitalIO.h"
+// TODO: DigitalIO library doesn't yet support Due.
+#include "CRDigitalPin.h"
 
 DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
 DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
