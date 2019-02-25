@@ -1,32 +1,17 @@
-# Prerequisites
-*.d
+/.bundle/
+/.yardoc
+Gemfile.lock
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+vendor
+*.gem
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# rspec failure tracking
+.rspec_status
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# C++ stuff
+*.bin
+*.bin.dSYM
