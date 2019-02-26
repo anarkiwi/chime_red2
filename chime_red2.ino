@@ -10,7 +10,7 @@
 //#pragma GCC diagnostic error "-Wall"
 //#pragma GCC diagnostic error "-Werror"
 
-// TODO: Have to hack ~/.arduino15/packages/arduino/hardware/sam/1.6.11/platform.txt, to change -Os to -O2,
+// TODO: Have to hack ~/.arduino15/packages/arduino/hardware/sam/*/platform.txt, to change -Os to -O2,
 // rather than following GCC pragma.
 // #pragma GCC optimize ("-O2")
 // #pragma GCC push_options
