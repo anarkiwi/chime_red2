@@ -1,4 +1,14 @@
 # chime_red2
 CHIME RED II
 
-Initial prototype.
+WARNING: Tesla coils can be dangerous. This code is experimental. Don't even try to build this code unless you understand it and the coil you will control with it.
+
+
+Build and run
+=============
+
+* Select Due board
+* Install libraries ArduinoSTL, DueTimer, FixedPonts, MIDI Library
+* Define CR_UI in CRIO.cpp if running on original CHIME RED I hardware
+* Change pulseWindowUs and coronaUs in constants.h to suit coil hardare (e.g. set pulseWindowUs to 700 for giant coils; coronaUs sets absolute minimum gate on time)
+* Upload to CHIME RED I/II
