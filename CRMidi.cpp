@@ -116,6 +116,9 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
   if (midiNote == NULL) {
     return;
   }
+  if (midiChannel->lfoRestart) {
+    _oc->RestartLFOs();
+  }
   midiChannel->NoteOn(note, velocity, _crio->maxPitch, midiNote, _oc);
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;

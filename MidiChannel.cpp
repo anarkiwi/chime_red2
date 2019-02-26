@@ -25,6 +25,7 @@ void MidiChannel::ResetCC() {
   pulserSpread = 0;
   tremoloRange = 0;
   coarseModulation = 0;
+  lfoRestart = true;
   SetBend(0, NULL, 0);
 }
 

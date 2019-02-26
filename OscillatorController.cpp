@@ -11,7 +11,9 @@
 #include "constants.h"
 
 #define FOR_ALL_OSC(osc_func) \
-  { for (uint8_t o = 0; o < oscillatorCount; ++o) { Oscillator *oscillator = _oscillators + o; { osc_func } } }
+  { for (uint8_t o = 0; o < oscillatorCount; ++o) { Oscillator *oscillator = _oscillators + o; { osc_func; } } }
+#define FOR_ALL_LFO(lfo_func) \
+  { for (uint8_t l = 0; l < lfoCount; ++l) { Lfo *lfo = _lfos + l; { lfo_func; } } }
 
 
 OscillatorController::OscillatorController() {
@@ -22,7 +24,7 @@ OscillatorController::OscillatorController() {
   tremoloLfo = _lfos;
   vibratoLfo = _lfos + 1;
   configurableLfo = _lfos + 2;
-  FOR_ALL_OSC(oscillator->index = o;);
+  FOR_ALL_OSC(oscillator->index = o);
   ResetAll();
 }
 
@@ -65,11 +67,12 @@ void OscillatorController::Tick() {
   }
   if (++_lfoClock > lfoClockMax) {
     _lfoClock = 0;
-    for (uint8_t l = 0; l < lfoCount; ++l) {
-      Lfo *lfo = _lfos + l;
-      lfo->Tick();
-    }
+    FOR_ALL_LFO(lfo->Tick());
   }
+}
+
+void OscillatorController::RestartLFOs() {
+  FOR_ALL_LFO(lfo->Restart());
 }
 
 bool OscillatorController::Triggered(Oscillator **audibleOscillator) {

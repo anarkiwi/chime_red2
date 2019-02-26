@@ -39,6 +39,7 @@ class MidiChannel {
     uint8_t pulserSpread;
     uint8_t tremoloRange;
     uint8_t coarseModulation;
+    bool lfoRestart;
    private:
     uint8_t _pitchBendRange;
     cr_fp_t _pitchBendScale;

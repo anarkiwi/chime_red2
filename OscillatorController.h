@@ -19,6 +19,7 @@ class OscillatorController {
  public:
   OscillatorController();
   void Tick();
+  void RestartLFOs();
   void ResetAll();
   bool Triggered(Oscillator **audibleOscillator);
   Oscillator *GetFreeOscillator();

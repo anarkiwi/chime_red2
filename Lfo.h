@@ -17,6 +17,7 @@
 class Lfo {
  public:
   Lfo();
+  void Restart();
   void Tick();
   void SetHz(cr_fp_t hz);
   cr_fp_t Level();

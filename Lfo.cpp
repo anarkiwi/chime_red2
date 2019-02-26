@@ -11,7 +11,13 @@
 
 Lfo::Lfo() {
   _table = (cr_fp_t*)SineTable;
+  Restart();
   SetHz(1.0);
+}
+
+void Lfo::Restart() {
+  _tablePos = 0;
+  _ticks = 0;
 }
 
 void Lfo::SetHz(cr_fp_t hz) {
