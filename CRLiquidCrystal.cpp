@@ -14,11 +14,11 @@ CRLiquidCrystal::CRLiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
   _rs_pin = rs;
   _rw_pin = rw;
   _enable_pin = enable;
-  _busy_pin = d3;
   _data_pins[0] = d0;
   _data_pins[1] = d1;
   _data_pins[2] = d2;
   _data_pins[3] = d3;
+  _busy_pin = _data_pins[3];
 
   pinMode(_rs_pin, OUTPUT);
   pinMode(_rw_pin, OUTPUT);
@@ -26,10 +26,10 @@ CRLiquidCrystal::CRLiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
   digitalWrite(_rs_pin, LOW);
   digitalWrite(_rw_pin, LOW);
   digitalWrite(_enable_pin, LOW);
-  pinMode(d0, OUTPUT);
-  pinMode(d1, OUTPUT);
-  pinMode(d2, OUTPUT);
-  pinMode(d3, OUTPUT);
+  pinMode(_data_pins[0], OUTPUT);
+  pinMode(_data_pins[1], OUTPUT);
+  pinMode(_data_pins[2], OUTPUT);
+  pinMode(_data_pins[3], OUTPUT);
 }
 
 void CRLiquidCrystal::begin() {
@@ -38,14 +38,14 @@ void CRLiquidCrystal::begin() {
 
   for (uint8_t i = 0; i < 3; ++i) {
     writelow4(0x03);
-    delay(1);
+    delay(5);
   }
   writelow4(0x02);
   delay(1);
 
   command(LCD_FUNCTIONSET | LCD_4BITMODE | LCD_2LINE | LCD_5x8DOTS);
   command(LCD_ENTRYMODESET | LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT);
-  command(LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF);
+  command(LCD_DISPLAYCONTROL | LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF);
   clear();
 }
 
