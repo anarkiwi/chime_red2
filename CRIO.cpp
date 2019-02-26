@@ -10,6 +10,8 @@
 
 // TODO: DigitalIO library doesn't yet support Due.
 #include "CRDigitalPin.h"
+// TODO: Regular LCD library uses timers and isn't interruptable.
+#include "CRLiquidCrystal.h"
 
 DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
 DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
@@ -17,16 +19,12 @@ DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
 DigitalPin<fixedVarPulseInPin> _fixedVarInPin(INPUT, LOW);
 DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
 
-// TODO: need LiquidCrystalFast from https://github.com/Swap-File/tron-suit/tree/master/Helmet/Software/Libraries/LiquidCrystalFast
-// This library uses the rw pin to determine when a write has been done rather than just delaying.
-// $ git clone https://github.com/Swap-File/tron-suit
-// $ ln -s tron-suit/Helmet/Software/Libraries/LiquidCrystalFast .
-#include <LiquidCrystalFast.h>
-
 #include "CRIO.h"
 #include "constants.h"
 
-LiquidCrystalFast lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
+// #define CR_UI 1
+
+CRLiquidCrystal lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 
 
 CRIO::CRIO() {
@@ -58,10 +56,7 @@ CRIO::CRIO() {
   memset(&_lcdFrameBuffer, ' ', sizeof(_lcdFrameBuffer));
   _lcdLine1 = _lcdBuffer[1];
 #ifdef CR_UI
-  lcd.begin(lcdWidth, lcdLines);
-  lcd.noCursor();
-  lcd.clear();
-  lcd.home();
+  lcd.begin();
 #endif
 }
 

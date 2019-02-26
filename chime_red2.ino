@@ -16,7 +16,7 @@
 // #pragma GCC push_options
 
 // Define when running on full hardware.
-// #define CR_UI
+// #define CR_UI 1
 
 #include <DueTimer.h>
 #include <MIDI.h>
