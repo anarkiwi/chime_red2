@@ -57,9 +57,6 @@ private:
 class CRIOLcd : public CRIO {
  public:
   CRIOLcd();
-  void startPulse();
-  void schedulePulse(cr_fp_t pulseUs);
-  void handlePulse();
   void updateLcd();
   void pollPots();
   void updateCoeff();
