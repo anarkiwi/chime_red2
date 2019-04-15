@@ -15,7 +15,7 @@
 // #pragma GCC optimize ("-O2")
 // #pragma GCC push_options
 
-// Define when running on full hardware.
+// Define when running on CR original hardware.
 // #define CR_UI 1
 
 #include <DueTimer.h>
@@ -34,10 +34,16 @@ DueTimer masterTimer = Timer.getAvailable();
 struct ChimeRedSettings : public midi::DefaultSettings {
   static const bool Use1ByteParsing = true;
 };
+
+#ifdef CR_UI
 MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial1, MIDI, ChimeRedSettings);
-
-
+CRIOLcd crio;
+#else
+MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial2, MIDI, ChimeRedSettings);
 CRIO crio;
+#endif
+
+
 OscillatorController oc;
 CRMidi crmidi(&oc, &crio);
 

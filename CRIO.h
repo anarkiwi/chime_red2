@@ -45,13 +45,29 @@ class CRIO {
   uint8_t maxPitch;
   cr_fp_t maxChargePct;
 private:
-  cr_fp_t scalePot(uint8_t);
   void oneShotPulse();
   void pulseOff();
   void pulseOn();
   bool _pulseState;
   cr_pulse_t _oneShotPulseUs;
   uint8_t _multiShotPulses;
+  uint16_t _ticksSinceLastPulse;
+};
+
+class CRIOLcd : public CRIO {
+ public:
+  CRIOLcd();
+  void startPulse();
+  void schedulePulse(cr_fp_t pulseUs);
+  void handlePulse();
+  void updateLcd();
+  void pollPots();
+  void updateCoeff();
+  void updateLcdCoeff();
+  bool percussionEnabled();
+  bool fixedPulseEnabled();
+ private:
+  cr_fp_t _scalePot(uint8_t);
   char _lcdBuffer[lcdLines][lcdWidth+1];
   char _lcdFrameBuffer[lcdLines][lcdWidth+1];
   uint8_t _lcdRow;
@@ -60,7 +76,6 @@ private:
   uint8_t _lastLcdCol;
   uint8_t _nextPotPin;
   uint8_t _potSampleCount;
-  uint16_t _ticksSinceLastPulse;
   char *_lcdLine1;
   potPinType potPinState[potPins];
   potPinType *_prPot;

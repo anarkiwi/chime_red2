@@ -22,8 +22,6 @@ DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
 #include "CRIO.h"
 #include "constants.h"
 
-// #define CR_UI 1
-
 CRLiquidCrystal lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 
 
@@ -31,14 +29,18 @@ CRIO::CRIO() {
   scheduled = false;
   _oneShotPulseUs = 0;
   _multiShotPulses = 0;
-  _lcdRow = 0;
-  _lcdCol = 0;
-  _lastLcdRow = 0;
-  _lastLcdCol = 0;
   _pulseState = false;
   pw = pulseWindowUs;
   maxPitch = maxMidiPitch;
   maxChargePct = 100;
+  _ticksSinceLastPulse = 0;
+}
+
+CRIOLcd::CRIOLcd() {
+  _lcdRow = 0;
+  _lcdCol = 0;
+  _lastLcdRow = 0;
+  _lastLcdCol = 0;
   bzero(&potPinState, sizeof(potPinState));
   _maxChargePot = potPinState;
   _maxChargePot->pin = A9;
@@ -48,32 +50,29 @@ CRIO::CRIO() {
   _pwPot->pin = A11;
   _nextPotPin = 0;
   _potSampleCount = 0;
-  _ticksSinceLastPulse = 0;
   analogReadResolution(analogBits);
   REG_ADC_MR = (REG_ADC_MR & 0xFFF0FFFF) | 0x00020000; // ADC startup time
   REG_ADC_MR = (REG_ADC_MR & 0xFFFFFF0F) | 0x00000080; // enable FREERUN mode
   memset(&_lcdBuffer, ' ', sizeof(_lcdBuffer));
   memset(&_lcdFrameBuffer, ' ', sizeof(_lcdFrameBuffer));
   _lcdLine1 = _lcdBuffer[1];
-#ifdef CR_UI
   lcd.begin();
-#endif
 }
 
 bool CRIO::percussionEnabled() {
-#ifdef CR_UI
-  return _percussionEnableInPin.read();
-#else
   return true;
-#endif
+}
+
+bool CRIOLcd::percussionEnabled() {
+  return _percussionEnableInPin.read();
 }
 
 bool CRIO::fixedPulseEnabled() {
-#ifdef CR_UI
-  return _fixedVarInPin.read();
-#else
   return false;
-#endif
+}
+
+bool CRIOLcd::fixedPulseEnabled() {
+  return _fixedVarInPin.read();
 }
 
 inline void CRIO::pulseOn() {
@@ -152,14 +151,16 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
   }
 }
 
-inline cr_fp_t _scalePot(uint8_t pin) {
+inline cr_fp_t CRIOLcd::_scalePot(uint8_t pin) {
   uint16_t sample = analogRead(pin);
   sample = sample >> 2 << 2;
   return cr_fp_t(1) - (cr_fp_t(sample) * maxAnalogRead);
 }
 
 void CRIO::pollPots() {
-#ifdef CR_UI
+}
+
+void CRIOLcd::pollPots() {
   potPinType *potPin = potPinState + _nextPotPin;
   cr_fp_t sampleVal = _scalePot(potPin->pin);
   if (sampleVal != potPin->currVal) {
@@ -176,11 +177,12 @@ void CRIO::pollPots() {
       _nextPotPin = 0;
     }
   }
-#endif
 }
 
 void CRIO::updateLcd() {
-#ifdef CR_UI
+}
+
+void CRIOLcd::updateLcd() {
   char c = _lcdBuffer[_lcdRow][_lcdCol];
   if (c == 0) {
     c = ' ';
@@ -202,18 +204,21 @@ void CRIO::updateLcd() {
       _lcdRow = 0;
     }
   }
-#endif
 }
 
 void CRIO::updateCoeff() {
-#ifdef CR_UI
+}
+
+void CRIOLcd::updateCoeff() {
   pw = _pwPot->currVal * pulseWindowUs;
   maxPitch = roundFixed(_prPot->currVal * cr_fp_t(maxMidiPitch)).getInteger();
   maxChargePct = _maxChargePot->currVal * 100;
-#endif
 }
 
 void CRIO::updateLcdCoeff() {
+}
+
+void CRIOLcd::updateLcdCoeff() {
   itoa(pitchToHz[maxPitch].getInteger(), _lcdLine1, 10);
   *(_lcdLine1 + 4) = 'H';
   *(_lcdLine1 + 5) = 'z';
