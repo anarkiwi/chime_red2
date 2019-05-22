@@ -31,6 +31,7 @@ class CRMidi {
   private:
     MidiChannel *ChannelNoteValid(byte channel, byte note);
     MidiChannel *ChannelEnabled(byte channel);
+    void AllNotesOff(MidiChannel *midiChannel);
     void ExpireNotes(MidiChannel *midiChannel);
     MidiNote *GetFreeNote();
     void ReturnFreeNote(MidiNote *midiNote);

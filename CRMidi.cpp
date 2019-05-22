@@ -15,6 +15,7 @@
 #define FOR_ALL_CHAN(channel_func) \
   { for (uint8_t c = 0; c < midiChannelStorage; ++c) { MidiChannel *midiChannel = _midiChannels + c; channel_func; } }
 #define SET_CC(cc_attr, value) { if (cc_attr != value) { cc_attr = value; } }
+#define MIDI_TO_HZ(value) (midiValMap[value] * cr_fp_t(lfoMaxHz))
 
 CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   _oc = oc;
@@ -49,9 +50,13 @@ MidiChannel *CRMidi::ChannelEnabled(byte channel) {
   return GET_CHAN(channel);
 }
 
-void CRMidi::ResetChannel(MidiChannel *midiChannel) {
+void CRMidi::AllNotesOff(MidiChannel *midiChannel) {
   midiChannel->IdleAllNotes();
   ExpireNotes(midiChannel);
+}
+
+void CRMidi::ResetChannel(MidiChannel *midiChannel) {
+  AllNotesOff(midiChannel);
   midiChannel->Reset();
 }
 
@@ -147,15 +152,23 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
   if (midiChannel == NULL) {
     return;
   }
+  // https://www.midi.org/midi/specifications/item/table-1-summary-of-midi-message
   switch (number) {
-    case 123:
-      ResetChannel(midiChannel);
+    case 127: // Poly Mode On (Mono Off) (Note: These four messages also cause All Notes Off)
+    case 126: // Mono Mode On (Poly Off) where M is the number of channels (Omni Off) or 0 (Omni On)
+    case 125: // Omni Mode On
+    case 124: // Omni Mode Off
+    case 123: // All Notes Off
+      AllNotesOff(midiChannel);
+      break;
+    case 121: // Reset All Controllers
+      midiChannel->ResetCC();
       break;
     case 92:
       SET_CC(midiChannel->tremoloRange, value);
       break;
     case 76:
-      _oc->vibratoLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
+      _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 75:
       SET_CC(midiChannel->decay, value);
@@ -167,13 +180,13 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       SET_CC(midiChannel->release, value);
       break;
     case 27:
-      _oc->configurableLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
+      _oc->configurableLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 24:
       SET_CC(midiChannel->sustain, value);
       break;
     case 22:
-      _oc->tremoloLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
+      _oc->tremoloLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 21:
       SET_CC(midiChannel->pulserSpread, value);

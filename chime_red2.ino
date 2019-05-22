@@ -110,6 +110,7 @@ void enableMidi() {
   MIDI.setHandleSystemReset(resetAll);
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.setHandlePitchBend(handlePitchBend);
+  // TODO: put serial port in poll only mode.
   MIDI.begin(MIDI_CHANNEL_OMNI);
 }
 
