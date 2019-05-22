@@ -154,14 +154,14 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 92:
       SET_CC(midiChannel->tremoloRange, value);
       break;
-    case 73:
-      SET_CC(midiChannel->attack, value);
-      break;
     case 76:
       _oc->vibratoLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
       break;
     case 75:
       SET_CC(midiChannel->decay, value);
+      break;
+    case 73:
+      SET_CC(midiChannel->attack, value);
       break;
     case 72:
       SET_CC(midiChannel->release, value);
@@ -175,14 +175,11 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 22:
       _oc->tremoloLfo->SetHz(midiValMap[value] * cr_fp_t(lfoMaxHz));
       break;
-    case 20: {
-      if (value) {
-          SET_CC(midiChannel->pulserCount, value);
-        }
-      }
-      break;
     case 21:
       SET_CC(midiChannel->pulserSpread, value);
+      break;
+    case 20:
+      SET_CC(midiChannel->pulserCount, value);
       break;
     case 1:
       SET_CC(midiChannel->coarseModulation, value);
