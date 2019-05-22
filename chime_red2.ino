@@ -108,7 +108,6 @@ void enableMidi() {
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
   MIDI.setHandleSystemReset(resetAll);
-  MIDI.setHandleStop(resetAll);
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.setHandlePitchBend(handlePitchBend);
   MIDI.begin(MIDI_CHANNEL_OMNI);
