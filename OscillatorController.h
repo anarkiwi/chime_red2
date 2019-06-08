@@ -31,14 +31,14 @@ class OscillatorController {
   Lfo *tremoloLfo;
   Lfo *vibratoLfo;
   Lfo *configurableLfo;
-  private:
-   Lfo _lfos[lfoCount];
-   Oscillator _oscillators[oscillatorCount];
-   cr_tick_t _masterClock;
-   cr_slowtick_t _controlClock;
-   cr_slowtick_t _lfoClock;
-   Oscillator *_nextTriggeredOscillator;
-   std::stack<Oscillator*> _freeOscillators;
+ private:
+  Lfo _lfos[lfoCount];
+  Oscillator _oscillators[oscillatorCount];
+  cr_tick_t _masterClock;
+  cr_slowtick_t _controlClock;
+  cr_slowtick_t _lfoClock;
+  Oscillator *_nextTriggeredOscillator;
+  std::stack<Oscillator*> _freeOscillators;
 };
 
 #endif

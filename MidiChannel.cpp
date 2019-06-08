@@ -87,6 +87,13 @@ cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch) {
   return hz;
 }
 
+void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc) {
+  Oscillator *oscillator;
+  oscillator = oc->GetFreeOscillator();
+  oc->SetFreq(oscillator, hz, maxHz, midiNote->velocityScale);
+  midiNote->oscillators.push_back(oscillator);
+}
+
 void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiNote *midiNote, OscillatorController *oc) {
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
@@ -95,18 +102,11 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   cr_fp_t maxHz = pitchToHz[maxPitch];
 
   if (pulserCount == 2 && pulserSpread > 0) {
-    Oscillator *oscillator;
-    oscillator = oc->GetFreeOscillator();
     cr_fp_t hzWindow = fundamentalHz / 20;
-    oc->SetFreq(oscillator, fundamentalHz + (hzWindow * midiValMap[pulserSpread]), maxHz, midiNote->velocityScale);
-    midiNote->oscillators.push_back(oscillator);
-    oscillator = oc->GetFreeOscillator();
-    oc->SetFreq(oscillator, fundamentalHz - ((hzWindow / 2) * midiValMap[pulserSpread]), maxHz, midiNote->velocityScale);
-    midiNote->oscillators.push_back(oscillator);
+    _AddOscillatorToNote(fundamentalHz + (hzWindow * midiValMap[pulserSpread]), maxHz, midiNote, oc);
+    _AddOscillatorToNote(fundamentalHz - ((hzWindow / 2) * midiValMap[pulserSpread]), maxHz, midiNote, oc);
   } else {
-    Oscillator *oscillator = oc->GetFreeOscillator();
-    oc->SetFreq(oscillator, fundamentalHz, maxHz, midiNote->velocityScale);
-    midiNote->oscillators.push_back(oscillator);
+    _AddOscillatorToNote(fundamentalHz, maxHz, midiNote, oc);
   }
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
