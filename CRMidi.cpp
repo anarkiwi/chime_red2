@@ -245,3 +245,23 @@ void CRMidi::FMModulate() {
     }
   }
 }
+
+inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
+  p /= 2;
+  p += (p * depth * lfo->Level());
+  return p;
+}
+
+cr_fp_t CRMidi::AMModulate(Oscillator *audibleOscillator) {
+  cr_fp_t p = _crio->pw;
+  if (!_crio->fixedPulseEnabled()) {
+    MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
+    p *= audibleOscillator->pulseUsScale;
+    if (midiChannel->tremoloRange) {
+      p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo);
+    }
+    p *= audibleOscillator->envelope->level;
+    p += coronaUs;
+  }
+  return p;
+}

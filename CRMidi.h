@@ -27,8 +27,9 @@ class CRMidi {
     void handlePitchBend(byte channel, int bend);
     void handleControlChange(byte channel, byte number, byte value);
     bool HandleControl();
-    MidiChannel *getOscillatorChannel(Oscillator *oscillator);
+    cr_fp_t AMModulate(Oscillator *audibleOscillator);
   private:
+    MidiChannel *getOscillatorChannel(Oscillator *oscillator);
     MidiChannel *ChannelNoteValid(byte channel, byte note);
     MidiChannel *ChannelEnabled(byte channel);
     void AllNotesOff(MidiChannel *midiChannel);

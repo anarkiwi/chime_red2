@@ -67,28 +67,13 @@ inline void resetAll() {
   crmidi.ResetAll();
 }
 
-inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
-  p /= 2;
-  p += (p * depth * lfo->Level());
-  return p;
-}
-
 void masterISR() {
   crio.handlePulse();
   oc.Tick();
   Oscillator *audibleOscillator = NULL;
   if (oc.Triggered(&audibleOscillator)) {
     if (audibleOscillator) {
-      cr_fp_t p = crio.pw;
-      if (!crio.fixedPulseEnabled()) {
-        MidiChannel *midiChannel = crmidi.getOscillatorChannel(audibleOscillator);
-        p *= audibleOscillator->pulseUsScale;
-        if (midiChannel->tremoloRange) {
-          p = amModulate(p, midiValMap[midiChannel->tremoloRange], oc.tremoloLfo);
-        }
-        p *= audibleOscillator->envelope->level;
-        p += coronaUs;
-      }
+      cr_fp_t p = crmidi.AMModulate(audibleOscillator);
       crio.schedulePulse(p);
     }
   } else {
