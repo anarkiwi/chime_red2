@@ -17,3 +17,5 @@ vendor
 *.bin.dSYM
 
 arduino*.tar.xz
+
+*.swp
