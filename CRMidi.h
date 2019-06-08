@@ -41,6 +41,7 @@ class CRMidi {
     MidiChannel _midiChannels[midiChannelStorage];
     MidiChannel *_midiChannelMap[stdMidiChannels+1];
     MidiChannel *_oscillatorChannelMap[oscillatorCount];
+    MidiChannel *_percussionChannel;
     std::stack<MidiNote*> _freeMidiNotes;
     OscillatorController *_oc;
     CRIO *_crio;

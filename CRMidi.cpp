@@ -31,7 +31,8 @@ CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   for (uint8_t c = 1; c <= maxMidiChannel; ++c) {
     _midiChannelMap[c] = _midiChannels + (c - 1);
   }
-  _midiChannelMap[PERC_CHAN] = _midiChannels + maxMidiChannel;
+  _percussionChannel = _midiChannels + maxMidiChannel;
+  _midiChannelMap[PERC_CHAN] = _percussionChannel;
   ResetAll();
 }
 
@@ -81,9 +82,6 @@ bool CRMidi::HandleControl() {
       break;
     case 4:
       _crio->updateLcdCoeff();
-      break;
-    case 5:
-      handlePitchBend(PERC_CHAN, random(0, 16383) - 8192);
       break;
     default:
       complete = true;
@@ -246,6 +244,10 @@ inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
   return p;
 }
 
+inline int16_t randomBend() {
+  return random(0, 16383) - 8192;
+}
+
 cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
   cr_fp_t p = _crio->pw;
   MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
@@ -257,6 +259,10 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
     p *= audibleOscillator->envelope->level;
     p += coronaUs;
   }
-  FMModulate(midiChannel);
+  if (_percussionChannel == midiChannel) {
+    midiChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
+  } else {
+    FMModulate(midiChannel);
+  }
   return p;
 }
