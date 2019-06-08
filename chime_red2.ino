@@ -73,7 +73,7 @@ void masterISR() {
   Oscillator *audibleOscillator = NULL;
   if (oc.Triggered(&audibleOscillator)) {
     if (audibleOscillator) {
-      cr_fp_t p = crmidi.AMModulate(audibleOscillator);
+      cr_fp_t p = crmidi.Modulate(audibleOscillator);
       crio.schedulePulse(p);
     }
   } else {

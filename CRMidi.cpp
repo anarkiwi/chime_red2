@@ -77,16 +77,13 @@ bool CRMidi::HandleControl() {
       _crio->pollPots();
       break;
     case 3:
-      handlePitchBend(PERC_CHAN, random(0, 16383) - 8192);
-      break;
-    case 4:
-      FMModulate();
-      break;
-    case 5:
       _crio->updateCoeff();
       break;
-    case 6:
+    case 4:
       _crio->updateLcdCoeff();
+      break;
+    case 5:
+      handlePitchBend(PERC_CHAN, random(0, 16383) - 8192);
       break;
     default:
       complete = true;
@@ -229,20 +226,13 @@ void CRMidi::ReturnFreeNote(MidiNote *midiNote) {
   _freeMidiNotes.push(midiNote);
 }
 
-void CRMidi::FMModulate() {
+void CRMidi::FMModulate(MidiChannel *midiChannel) {
   // TODO: simulate vibrato with pitchBend overload for testing.
-  for (uint8_t o = 0; o < oscillatorCount; ++o) {
-    Oscillator *oscillator = _oc->getOscillator(o);
-    MidiChannel *midiChannel = getOscillatorChannel(oscillator);
-    if (midiChannel == NULL)  {
-      continue;
-    }
-    if (midiChannel->coarseModulation) {
-      cr_fp_t bend = cr_fp_t(maxMidiPitchBend / 4);
-      bend *= midiValMap[midiChannel->coarseModulation];
-      bend *= _oc->vibratoLfo->Level();
-      midiChannel->SetBend(bend.getInteger(), _crio->maxPitch, _oc);
-    }
+  if (midiChannel->coarseModulation) {
+    cr_fp_t bend = cr_fp_t(maxMidiPitchBend / 4);
+    bend *= midiValMap[midiChannel->coarseModulation];
+    bend *= _oc->vibratoLfo->Level();
+    midiChannel->SetBend(bend.getInteger(), _crio->maxPitch, _oc);
   }
 }
 
@@ -252,10 +242,10 @@ inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
   return p;
 }
 
-cr_fp_t CRMidi::AMModulate(Oscillator *audibleOscillator) {
+cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
   cr_fp_t p = _crio->pw;
+  MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
   if (!_crio->fixedPulseEnabled()) {
-    MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
     p *= audibleOscillator->pulseUsScale;
     if (midiChannel->tremoloRange) {
       p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo);
@@ -263,5 +253,6 @@ cr_fp_t CRMidi::AMModulate(Oscillator *audibleOscillator) {
     p *= audibleOscillator->envelope->level;
     p += coronaUs;
   }
+  FMModulate(midiChannel);
   return p;
 }

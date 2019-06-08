@@ -27,7 +27,7 @@ class CRMidi {
     void handlePitchBend(byte channel, int bend);
     void handleControlChange(byte channel, byte number, byte value);
     bool HandleControl();
-    cr_fp_t AMModulate(Oscillator *audibleOscillator);
+    cr_fp_t Modulate(Oscillator *audibleOscillator);
   private:
     MidiChannel *getOscillatorChannel(Oscillator *oscillator);
     MidiChannel *ChannelNoteValid(byte channel, byte note);
@@ -36,7 +36,7 @@ class CRMidi {
     void ExpireNotes(MidiChannel *midiChannel);
     MidiNote *GetFreeNote();
     void ReturnFreeNote(MidiNote *midiNote);
-    void FMModulate();
+    void FMModulate(MidiChannel *midiChannel);
     MidiNote _midiNotes[oscillatorCount];
     MidiChannel _midiChannels[midiChannelStorage];
     MidiChannel *_midiChannelMap[stdMidiChannels+1];
