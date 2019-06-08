@@ -56,9 +56,13 @@ void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     cr_fp_t hz = BendHz(midiNote, maxPitch, midiTuneCents[detune]);
-    cr_fp_t hz2 = BendHz(midiNote, maxPitch, midiTuneCents[detune2]);
-    // TODO: add another oscillator if detune2 changed from default after note scheduled.
-    midiNote->SetFreqLazy(hz, hz2, maxHz, oc);
+    if (midiNote->oscillators.size() == 1) {
+      // TODO: add another oscillator if detune2 changed from default after note scheduled.
+      midiNote->SetFreqLazy(hz, hz, maxHz, oc);
+    } else {
+      cr_fp_t hz2 = BendHz(midiNote, maxPitch, midiTuneCents[detune2]);
+      midiNote->SetFreqLazy(hz, hz2, maxHz, oc);
+    }
   }
 }
 
