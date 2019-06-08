@@ -89,6 +89,7 @@ bool CRMidi::HandleControl() {
       break;
     case 5:
       _percussionChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
+      break;
     default:
       complete = true;
   }
