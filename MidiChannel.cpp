@@ -106,6 +106,9 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->velocityScale = midiValMap[velocity];
   cr_fp_t maxHz = pitchToHz[maxPitch];
   _AddOscillatorToNote(BendHz(midiNote, maxPitch, midiTuneCents[detune]), maxHz, midiNote, oc);
+  if (detune2 != DEFAULT_DETUNE) {
+    _AddOscillatorToNote(BendHz(midiNote, maxPitch, midiTuneCents[detune2]), maxHz, midiNote, oc);
+  }
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->audible = true;
