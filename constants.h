@@ -12,7 +12,7 @@
 
 const cr_fp_t coronaUs = 8;
 const cr_fp_t pulseWindowUs = 120;
-const uint8_t pulseGuardTicks = 2;
+const uint8_t pulseGuardTicks = 1;
 
 const uint8_t oscillatorCount = 16;
 const cr_tick_t masterClockHz = 50000;

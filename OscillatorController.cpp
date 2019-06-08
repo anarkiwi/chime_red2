@@ -82,9 +82,11 @@ bool OscillatorController::Triggered(Oscillator **audibleOscillator) {
     FOR_ALL_OSC(
       if (oscillator->Triggered(_masterClock)) {
         oscillator->SetNextTick(_masterClock);
-        // TODO: pick the loudest
         if (oscillator->audible) {
-          *audibleOscillator = oscillator;
+          // Always pick the lowest frequency audible oscillator.
+          if (*audibleOscillator == NULL || (oscillator->hz < (*audibleOscillator)->hz)) {
+            *audibleOscillator = oscillator;
+          }
         }
       }
       cr_tick_t nextTriggeredTicks = oscillator->TicksUntilTriggered(_masterClock);
