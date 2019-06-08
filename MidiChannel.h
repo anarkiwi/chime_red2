@@ -30,13 +30,13 @@ class MidiChannel {
     bool ResetNote(uint8_t note);
     MidiNote *NotesExpire(OscillatorController *oc);
     void HandleControl();
+    void RetuneNotes(uint8_t maxPitch, OscillatorController *oc);
     int bend;
     uint8_t attack;
     uint8_t decay;
     uint8_t sustain;
     uint8_t release;
-    uint8_t pulserCount;
-    uint8_t pulserSpread;
+    uint8_t detune;
     uint8_t tremoloRange;
     uint8_t coarseModulation;
     bool lfoRestart;

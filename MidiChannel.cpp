@@ -21,11 +21,10 @@ void MidiChannel::ResetCC() {
   decay = 0;
   sustain = maxMidiVal;
   release = 0;
-  pulserCount = 1;
-  pulserSpread = 0;
   tremoloRange = 0;
   coarseModulation = 0;
   lfoRestart = true;
+  detune = 64;
   SetBend(0, NULL, 0);
 }
 
@@ -49,6 +48,14 @@ inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
   return _noteMap[note];
 }
 
+void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
+  cr_fp_t maxHz = pitchToHz[maxPitch];
+  for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
+    MidiNote *midiNote = *i;
+    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch), maxHz, oc);
+  }
+}
+
 void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *oc) {
   if (bend == newBend) {
     return;
@@ -65,15 +72,11 @@ void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *o
       _pitchBendDiff = -_pitchBendRange;
     }
   }
-  cr_fp_t maxHz = pitchToHz[maxPitch];
-  for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
-    MidiNote *midiNote = *i;
-    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch), maxHz, oc);
-  }
+  RetuneNotes(maxPitch, oc);
 }
 
 cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch) {
-  cr_fp_t hz = pitchToHz[midiNote->pitch];
+  cr_fp_t hz = pitchToHz[midiNote->pitch] * midiTuneCents[detune];
   if (_pitchBendScale > 0) {
     int16_t windowPitch = midiNote->pitch + _pitchBendDiff;
     if (windowPitch < 0) {
@@ -100,14 +103,7 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->velocityScale = midiValMap[velocity];
   cr_fp_t fundamentalHz = BendHz(midiNote, maxPitch);
   cr_fp_t maxHz = pitchToHz[maxPitch];
-
-  if (pulserCount == 2 && pulserSpread > 0) {
-    cr_fp_t hzWindow = fundamentalHz / 20;
-    _AddOscillatorToNote(fundamentalHz + (hzWindow * midiValMap[pulserSpread]), maxHz, midiNote, oc);
-    _AddOscillatorToNote(fundamentalHz - ((hzWindow / 2) * midiValMap[pulserSpread]), maxHz, midiNote, oc);
-  } else {
-    _AddOscillatorToNote(fundamentalHz, maxHz, midiNote, oc);
-  }
+  _AddOscillatorToNote(fundamentalHz, maxHz, midiNote, oc);
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->audible = true;

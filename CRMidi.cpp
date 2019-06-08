@@ -153,6 +153,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     return;
   }
   // https://www.midi.org/midi/specifications/item/table-1-summary-of-midi-message
+  // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
   switch (number) {
     case 127: // Poly Mode On (Mono Off) (Note: These four messages also cause All Notes Off)
     case 126: // Mono Mode On (Poly Off) where M is the number of channels (Omni Off) or 0 (Omni On)
@@ -163,6 +164,10 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 121: // Reset All Controllers
       midiChannel->ResetCC();
+      break;
+    case 94:
+      SET_CC(midiChannel->detune, value);
+      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
       break;
     case 92:
       SET_CC(midiChannel->tremoloRange, value);
@@ -187,12 +192,6 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 22:
       _oc->tremoloLfo->SetHz(MIDI_TO_HZ(value));
-      break;
-    case 21:
-      SET_CC(midiChannel->pulserSpread, value);
-      break;
-    case 20:
-      SET_CC(midiChannel->pulserCount, value);
       break;
     case 1:
       SET_CC(midiChannel->coarseModulation, value);
