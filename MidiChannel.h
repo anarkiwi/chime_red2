@@ -24,7 +24,7 @@ class MidiChannel {
     void IdleAllNotes();
     MidiNote *LookupNote(uint8_t note);
     void SetBend(int newBend, uint8_t maxPitch, OscillatorController *oc);
-    cr_fp_t BendHz(MidiNote *midiNote, uint8_t maxPitch);
+    cr_fp_t BendHz(MidiNote *midiNote, uint8_t maxPitch, cr_fp_t detuneCoeff);
     void NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiNote *midiNote, OscillatorController *oc);
     void ReleaseNote(uint8_t note);
     bool ResetNote(uint8_t note);
@@ -37,6 +37,7 @@ class MidiChannel {
     uint8_t sustain;
     uint8_t release;
     uint8_t detune;
+    uint8_t detune2;
     uint8_t tremoloRange;
     uint8_t coarseModulation;
     bool lfoRestart;

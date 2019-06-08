@@ -9,6 +9,8 @@
 
 #include "MidiChannel.h"
 
+#define DEFAULT_DETUNE  64
+
 MidiChannel::MidiChannel() {
   bzero(&_noteMap, sizeof(_noteMap));
   Reset();
@@ -24,7 +26,8 @@ void MidiChannel::ResetCC() {
   tremoloRange = 0;
   coarseModulation = 0;
   lfoRestart = true;
-  detune = 64;
+  detune = DEFAULT_DETUNE;
+  detune2 = DEFAULT_DETUNE;
   SetBend(0, NULL, 0);
 }
 
@@ -52,7 +55,7 @@ void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
   cr_fp_t maxHz = pitchToHz[maxPitch];
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
-    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch), maxHz, oc);
+    midiNote->SetFreqLazy(BendHz(midiNote, maxPitch, midiTuneCents[detune]), maxHz, oc);
   }
 }
 
@@ -75,8 +78,8 @@ void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *o
   RetuneNotes(maxPitch, oc);
 }
 
-cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch) {
-  cr_fp_t hz = pitchToHz[midiNote->pitch] * midiTuneCents[detune];
+cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch, cr_fp_t detuneCoeff) {
+  cr_fp_t hz = pitchToHz[midiNote->pitch] * detuneCoeff;
   if (_pitchBendScale > 0) {
     int16_t windowPitch = midiNote->pitch + _pitchBendDiff;
     if (windowPitch < 0) {
@@ -101,9 +104,8 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
   midiNote->velocityScale = midiValMap[velocity];
-  cr_fp_t fundamentalHz = BendHz(midiNote, maxPitch);
   cr_fp_t maxHz = pitchToHz[maxPitch];
-  _AddOscillatorToNote(fundamentalHz, maxHz, midiNote, oc);
+  _AddOscillatorToNote(BendHz(midiNote, maxPitch, midiTuneCents[detune]), maxHz, midiNote, oc);
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->audible = true;

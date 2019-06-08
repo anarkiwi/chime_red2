@@ -162,6 +162,10 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 121: // Reset All Controllers
       midiChannel->ResetCC();
       break;
+    case 95:
+      SET_CC(midiChannel->detune2, value);
+      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      break;
     case 94:
       SET_CC(midiChannel->detune, value);
       midiChannel->RetuneNotes(_crio->maxPitch, _oc);
