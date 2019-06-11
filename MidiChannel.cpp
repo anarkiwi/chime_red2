@@ -11,14 +11,13 @@
 
 #define DEFAULT_DETUNE  64
 
+
 MidiChannel::MidiChannel() {
   bzero(&_noteMap, sizeof(_noteMap));
   Reset();
 }
 
 void MidiChannel::ResetCC() {
-  bend = 0;
-  _pitchBendRange = 12;
   attack = 0;
   decay = 0;
   sustain = maxMidiVal;
@@ -53,51 +52,31 @@ inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
 
 void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
   cr_fp_t maxHz = pitchToHz[maxPitch];
+  _pitchBender.SetMaxPitch(maxPitch);
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
-    cr_fp_t hz = BendHz(midiNote, maxPitch, midiTuneCents[detune]);
+    cr_fp_t hz = BendHz(midiNote, midiTuneCents[detune]);
     if (midiNote->oscillators.size() == 1) {
       // TODO: add another oscillator if detune2 changed from default after note scheduled.
       midiNote->SetFreqLazy(hz, hz, maxHz, oc);
     } else {
-      cr_fp_t hz2 = BendHz(midiNote, maxPitch, midiTuneCents[detune2]);
+      cr_fp_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
       midiNote->SetFreqLazy(hz, hz2, maxHz, oc);
     }
   }
 }
 
 void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *oc) {
-  if (bend == newBend) {
+  _pitchBender.SetMaxPitch(maxPitch);
+  if (!_pitchBender.SetBend(newBend)) {
     return;
-  }
-  bend = newBend;
-  if (bend == 0) {
-    _pitchBendScale = 0;
-    _pitchBendDiff = 0;
-  } else {
-    _pitchBendScale = cr_fp_t(abs(bend)) / maxMidiPitchBend;
-    if (bend > 0) {
-      _pitchBendDiff = _pitchBendRange;
-    } else {
-      _pitchBendDiff = -_pitchBendRange;
-    }
   }
   RetuneNotes(maxPitch, oc);
 }
 
-cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, uint8_t maxPitch, cr_fp_t detuneCoeff) {
+cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff) {
   cr_fp_t hz = pitchToHz[midiNote->pitch] * detuneCoeff;
-  if (_pitchBendScale > 0) {
-    int16_t windowPitch = midiNote->pitch + _pitchBendDiff;
-    if (windowPitch < 0) {
-      windowPitch = 0;
-    } else if (windowPitch > maxPitch) {
-      windowPitch = maxPitch;
-    }
-    cr_fp_t window = _pitchBendScale * (pitchToHz[(uint8_t)windowPitch] - hz);
-    hz += window;
-  }
-  return hz;
+  return _pitchBender.BendHz(midiNote, hz);
 }
 
 void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc) {
@@ -112,9 +91,10 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->envelope.Reset(attack, decay, sustain, release);
   midiNote->velocityScale = midiValMap[velocity];
   cr_fp_t maxHz = pitchToHz[maxPitch];
-  _AddOscillatorToNote(BendHz(midiNote, maxPitch, midiTuneCents[detune]), maxHz, midiNote, oc);
+  _pitchBender.SetMaxPitch(maxPitch);
+  _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), maxHz, midiNote, oc);
   if (detune2 != DEFAULT_DETUNE) {
-    _AddOscillatorToNote(BendHz(midiNote, maxPitch, midiTuneCents[detune2]), maxHz, midiNote, oc);
+    _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), maxHz, midiNote, oc);
   }
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
