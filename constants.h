@@ -33,7 +33,7 @@ const uint16_t maxLfoTable = 1e3 - 1;
 const cr_fp_t lfoMaxHz = 20;
 
 const uint8_t stdMidiChannels = 16;
-const uint8_t maxMidiChannel = 8;
+const uint8_t maxMidiChannel = 2;
 const uint8_t midiChannelStorage = maxMidiChannel + 1; // +1 reserved for ch 10 automatically
 const cr_fp_t maxMidiPitchBend = 8192;
 const uint8_t absMaxMidiPitch = 127;

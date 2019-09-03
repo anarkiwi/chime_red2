@@ -16,7 +16,7 @@
 // #pragma GCC push_options
 
 // Define when running on CR original hardware.
-// #define CR_UI 1
+#define CR_UI 1
 
 #include <DueTimer.h>
 #include <MIDI.h>
@@ -82,6 +82,8 @@ void masterISR() {
     } else if (oc.controlTriggered) {
       if (crmidi.HandleControl()) {
         MIDI.read();
+        crio.pollPots();
+        crio.updateCoeff();
         oc.controlTriggered = false;
       }
     }
@@ -105,5 +107,6 @@ void setup() {
 }
 
 void loop() {
+  crio.updateLcdCoeff();
   crio.updateLcd(); // interruptable and slow.
 }
