@@ -16,6 +16,9 @@
 
 Oscillator::Oscillator() {
   index = 0;
+  hz = 0;
+  _velocityScale = 0;
+  _hzPulseUsScale = 0;
   Reset();
 }
 
@@ -55,19 +58,25 @@ void Oscillator::SetNextTick(cr_tick_t masterClock) {
   }
 }
 
-void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t velocityScale) {
-  if (hz != newHz) {
+void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale) {
+  bool hzChange = hz != newHz;
+  bool velocityChange = hzChange || (_velocityScale != newVelocityScale);
+
+  if (hzChange) {
     hz = newHz;
     cr_fp_t clockPeriod_fp = roundFixed(cr_fp_t(masterClockHz) / hz);
     _clockPeriod = clockPeriod_fp.getInteger();
     // TODO: avoid division
-    pulseUsScale = cr_fp_t(1.0) - (hz / maxHz);
-    pulseUsScale *= pulseUsScale;
-    pulseUsScale *= velocityScale;
+    _hzPulseUsScale = cr_fp_t(1.0) - (hz / maxHz);
+    _hzPulseUsScale *= _hzPulseUsScale;
+  }
+  if (velocityChange) {
+    _velocityScale = newVelocityScale;
+    pulseUsScale = _hzPulseUsScale * _velocityScale;
   }
 }
 
-void Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t velocityScale, cr_tick_t masterClock) {
-  SetFreqLazy(newHz, maxHz, velocityScale);
+void Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock) {
+  SetFreqLazy(newHz, maxHz, newVelocityScale);
   ScheduleNext(masterClock);
 }
