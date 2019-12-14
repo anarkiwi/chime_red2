@@ -145,7 +145,7 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
   _oneShotPulseUs = pulseUs.getInteger();
   if (_oneShotPulseUs >= cr_pulse_t(masterClockPeriodUs)) {
     _multiShotPulses = _oneShotPulseUs / masterClockPeriodUs;
-    _oneShotPulseUs = _oneShotPulseUs % masterClockPeriodUs;
+    _oneShotPulseUs -= _multiShotPulses * masterClockPeriodUs;
   } else {
     _multiShotPulses = 0;
   }
