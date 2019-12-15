@@ -100,11 +100,11 @@ bool OscillatorController::Triggered(Oscillator **audibleOscillator) {
   return false;
 }
 
-void OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale) {
-  oscillator->SetFreqLazy(hz, maxHz, velocityScale);
+void OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset) {
+  oscillator->SetFreqLazy(hz, maxHz, velocityScale, periodOffset);
 }
 
-void OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale) {
-  oscillator->SetFreq(hz, maxHz, velocityScale, _masterClock);
+void OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset) {
+  oscillator->SetFreq(hz, maxHz, velocityScale, _masterClock, periodOffset);
   _nextTriggeredOscillator = oscillator;
 }

@@ -20,7 +20,6 @@ class MidiNote {
   MidiNote();
   void ResetOscillators(OscillatorController *oc);
   void Reset();
-  void SetFreqLazy(cr_fp_t hz, cr_fp_t hz2, cr_fp_t maxHz, OscillatorController *oc);
   void HandleControl();
   uint8_t pitch;
   cr_fp_t ageMs;

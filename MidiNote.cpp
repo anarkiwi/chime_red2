@@ -32,17 +32,6 @@ void MidiNote::Reset() {
   envelope.Reset(0, 0, maxMidiVal, 0);
 }
 
-void MidiNote::SetFreqLazy(cr_fp_t hz, cr_fp_t hz2, cr_fp_t maxHz, OscillatorController *oc) {
-  for (OscillatorDeque::const_iterator o = oscillators.begin(); o != oscillators.end(); ++o) {
-    Oscillator *oscillator = *o;
-    if (o != oscillators.begin()) {
-      oc->SetFreqLazy(oscillator, hz2, maxHz, velocityScale);
-    } else {
-      oc->SetFreqLazy(oscillator, hz, maxHz, velocityScale);
-    }
-  }
-}
-
 void MidiNote::HandleControl() {
   ageMs += controlClockTickMs;
   envelope.HandleControl();

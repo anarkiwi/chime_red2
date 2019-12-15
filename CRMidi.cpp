@@ -178,6 +178,14 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 92:
       SET_CC(midiChannel->tremoloRange, value);
       break;
+    case 91:
+      SET_CC(midiChannel->detune2Abs, value);
+      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      break;
+    case 90:
+      SET_CC(midiChannel->detuneAbs, value);
+      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      break;
     case 76:
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
       break;

@@ -94,11 +94,13 @@ class MidiChannel {
     uint8_t release;
     uint8_t detune;
     uint8_t detune2;
+    uint8_t detuneAbs;
+    uint8_t detune2Abs;
     uint8_t tremoloRange;
     uint8_t coarseModulation;
     bool lfoRestart;
    private:
-    void _AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc);
+    void _AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];

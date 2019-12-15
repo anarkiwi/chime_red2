@@ -19,8 +19,8 @@ class Oscillator {
   Oscillator();
   cr_tick_t TicksUntilTriggered(cr_tick_t masterClock);
   bool Triggered(cr_tick_t masterClock);
-  void SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock);
-  void SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale);
+  void SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
+  void SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
   void SetNextTick(cr_tick_t masterClock);
   void ScheduleNext(cr_tick_t masterClock);
   void Reset();
@@ -30,6 +30,7 @@ class Oscillator {
   AdsrEnvelope *envelope;
   uint8_t index;
  private:
+  int periodOffset;
   cr_fp_t _hzPulseUsScale;
   cr_fp_t _velocityScale;
   cr_tick_t ClockRemainder(cr_tick_t masterClock);

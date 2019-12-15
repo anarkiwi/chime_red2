@@ -27,7 +27,9 @@ void MidiChannel::ResetCC() {
   lfoRestart = true;
   detune = DEFAULT_DETUNE;
   detune2 = DEFAULT_DETUNE;
-  SetBend(0, NULL, 0);
+  detuneAbs = DEFAULT_DETUNE;
+  detune2Abs = DEFAULT_DETUNE;
+  SetBend(0, 0, 0);
 }
 
 void MidiChannel::Reset() {
@@ -53,15 +55,20 @@ inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
 void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
   cr_fp_t maxHz = pitchToHz[maxPitch];
   _pitchBender.SetMaxPitch(maxPitch);
+  int periodOffset = int(detuneAbs) - int(DEFAULT_DETUNE);
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     cr_fp_t hz = BendHz(midiNote, midiTuneCents[detune]);
-    if (midiNote->oscillators.size() == 1) {
-      // TODO: add another oscillator if detune2 changed from default after note scheduled.
-      midiNote->SetFreqLazy(hz, hz, maxHz, oc);
-    } else {
-      cr_fp_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
-      midiNote->SetFreqLazy(hz, hz2, maxHz, oc);
+    for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
+      Oscillator *oscillator = *o;
+      if (o == midiNote->oscillators.begin()) {
+        // TODO: add another oscillator if detune2 changed from default after note scheduled.
+        oc->SetFreqLazy(oscillator, hz, maxHz, midiNote->velocityScale, periodOffset);
+      } else {
+        int periodOffset = int(detune2Abs) - int(DEFAULT_DETUNE);
+        cr_fp_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
+        oc->SetFreqLazy(oscillator, hz2, maxHz, midiNote->velocityScale, periodOffset);
+      }
     }
   }
 }
@@ -79,10 +86,10 @@ cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff) {
   return _pitchBender.BendHz(midiNote, hz);
 }
 
-void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc) {
+void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc, int periodOffset) {
   Oscillator *oscillator;
   oscillator = oc->GetFreeOscillator();
-  oc->SetFreq(oscillator, hz, maxHz, midiNote->velocityScale);
+  oc->SetFreq(oscillator, hz, maxHz, midiNote->velocityScale, periodOffset);
   midiNote->oscillators.push_back(oscillator);
 }
 
@@ -92,9 +99,9 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->velocityScale = midiValMap[velocity];
   cr_fp_t maxHz = pitchToHz[maxPitch];
   _pitchBender.SetMaxPitch(maxPitch);
-  _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), maxHz, midiNote, oc);
-  if (detune2 != DEFAULT_DETUNE) {
-    _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), maxHz, midiNote, oc);
+  _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), maxHz, midiNote, oc, int(detuneAbs) - int(DEFAULT_DETUNE));
+  if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
+    _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), maxHz, midiNote, oc, int(detune2Abs) - int(DEFAULT_DETUNE));
   }
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
