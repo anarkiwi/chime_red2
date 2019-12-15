@@ -246,9 +246,8 @@ void CRMidi::FMModulate(MidiChannel *midiChannel) {
 }
 
 inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
-  p /= 2;
-  p += (p * depth * lfo->Level());
-  return p;
+  cr_fp_t dp = (p / cr_fp_t(2)) * depth;
+  return p - (dp + (dp * lfo->Level()));
 }
 
 cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
