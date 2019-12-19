@@ -1,0 +1,14 @@
+before_install:
+  - export PATH=$PATH:~/bin
+  - mkdir ~/bin
+install:
+  - curl -fsSL http://downloads.arduino.cc/arduino-1.8.10-linux64.tar.xz | tar xvf -
+  - ln -s arduino*/arduino bin/arduino
+  - curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+  - arduino-cli core install arduino:sam
+  - arduino-cli lib install ArduinoSTL
+  - arduino-cli lib install DueTimer
+  - arduino-cli lib install FixedPoint
+  - arduino-cli lib install "MIDI Library"
+script:
+  - arduino-cli compile --verbose --fqbn arduino:sam:arduino_due_x chime_red2.ino
