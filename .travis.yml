@@ -1,10 +1,11 @@
 before_install:
   - export PATH=$PATH:~/bin
 install:
-  - curl -fsSL http://downloads.arduino.cc/arduino-1.8.10-linux64.tar.xz | tar Jxvf -
+  - curl -fsSL http://downloads.arduino.cc/arduino-1.8.10-linux64.tar.xz | tar Jxf -
   - ln -s ~/arduino*/arduino ~/bin/arduino
   - curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/bin sh
   - arduino-cli core install arduino:sam
+  - arduino-cli core update-index
   - arduino-cli lib install ArduinoSTL
   - arduino-cli lib install DueTimer
   - arduino-cli lib install FixedPoint
