@@ -8,7 +8,7 @@ install:
   - arduino-cli core install arduino:sam
   - arduino-cli lib install ArduinoSTL
   - arduino-cli lib install DueTimer
-  - arduino-cli lib install FixedPoint
+  - arduino-cli lib install FixedPoints
   - arduino-cli lib install "MIDI Library"
 script:
   - arduino-cli compile --verbose --fqbn arduino:sam:arduino_due_x chime_red2.ino
