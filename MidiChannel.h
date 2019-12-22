@@ -100,7 +100,7 @@ class MidiChannel {
     uint8_t coarseModulation;
     bool lfoRestart;
    private:
-    void _AddOscillatorToNote(cr_fp_t hz, cr_fp_t maxHz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
+    void _AddOscillatorToNote(cr_fp_t hz,  MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];

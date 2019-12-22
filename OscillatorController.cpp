@@ -25,7 +25,12 @@ OscillatorController::OscillatorController() {
   vibratoLfo = _lfos + 1;
   configurableLfo = _lfos + 2;
   FOR_ALL_OSC(oscillator->index = o);
+  SetMaxHz(1.0);
   ResetAll();
+}
+
+void OscillatorController::SetMaxHz(cr_fp_t newMaxHz) {
+  _maxHz = newMaxHz;
 }
 
 Oscillator *OscillatorController::GetFreeOscillator() {
@@ -96,11 +101,11 @@ bool OscillatorController::Triggered(Oscillator **audibleOscillator) {
   return false;
 }
 
-void OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset) {
-  oscillator->SetFreqLazy(hz, maxHz, velocityScale, periodOffset);
+void OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset) {
+  oscillator->SetFreqLazy(hz, _maxHz, velocityScale, periodOffset);
 }
 
-void OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset) {
-  oscillator->SetFreq(hz, maxHz, velocityScale, _masterClock, periodOffset);
+void OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset) {
+  oscillator->SetFreq(hz, _maxHz, velocityScale, _masterClock, periodOffset);
   _nextTriggeredOscillator = oscillator;
 }

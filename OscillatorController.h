@@ -24,8 +24,9 @@ class OscillatorController {
   bool Triggered(Oscillator **audibleOscillator);
   Oscillator *GetFreeOscillator();
   void ReturnFreeOscillator(Oscillator *oscillator);
-  void SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset);
-  void SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t maxHz, cr_fp_t velocityScale, int periodOffset);
+  void SetMaxHz(cr_fp_t newMaxHz);
+  void SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset);
+  void SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset);
   bool controlTriggered;
   Lfo *tremoloLfo;
   Lfo *vibratoLfo;
@@ -33,6 +34,7 @@ class OscillatorController {
  private:
   Lfo _lfos[lfoCount];
   Oscillator _oscillators[oscillatorCount];
+  cr_fp_t _maxHz;
   cr_tick_t _masterClock;
   cr_slowtick_t _controlClock;
   cr_slowtick_t _lfoClock;

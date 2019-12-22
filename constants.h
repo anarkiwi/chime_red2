@@ -37,7 +37,7 @@ const uint8_t maxMidiChannel = 8;
 const uint8_t midiChannelStorage = maxMidiChannel + 1; // +1 reserved for ch 10 automatically
 const cr_fp_t maxMidiPitchBend = 8192;
 const uint8_t absMaxMidiPitch = 127;
-const uint8_t maxMidiPitch = 96;
+const uint8_t maxMidiPitch = 84;
 const uint8_t maxMidiVal = 127;
 
 const uint8_t lfoCount = 3;
