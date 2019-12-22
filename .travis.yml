@@ -9,7 +9,7 @@ install:
   - curl -fsSL http://downloads.arduino.cc/arduino-1.8.10-linux64.tar.xz | tar Jxf -
   - ln -s ~/arduino*/arduino ~/bin/arduino
   - curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/bin sh
-  - ls -l /home/travis/.arduino15/
+  ./arduino-cli config init
   - arduino-cli core update-index
   - arduino-cli core install arduino:sam
   - arduino-cli lib install ArduinoSTL
