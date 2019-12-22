@@ -7,7 +7,7 @@ addons:
 before_install:
   - export PATH=$PATH:~/bin
 install:
-  - curl -fsSL https://downloads.arduino.cc/arduino-latest-linux64.tar.xz | tar Jxf -
+  - curl -fsSL https://downloads.arduino.cc/arduino-1.8.10-linux64.tar.xz | tar Jxf -
   - ln -s ~/arduino*/arduino ~/bin/arduino
   - curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/bin sh
   - mkdir -p $HOME/.arduino15/packages
