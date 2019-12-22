@@ -20,6 +20,7 @@ CRLiquidCrystal::CRLiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
   _data_pins[3] = d3;
   _busy_pin = _data_pins[3];
 
+  pinMode(_busy_pin, INPUT);
   pinMode(_rs_pin, OUTPUT);
   pinMode(_rw_pin, OUTPUT);
   pinMode(_enable_pin, OUTPUT);
@@ -91,7 +92,6 @@ void CRLiquidCrystal::writelow4(uint8_t value) {
 }
 
 void CRLiquidCrystal::waitFree() {
-  pinMode(_busy_pin, INPUT);
   digitalWrite(_rw_pin, HIGH);
   digitalWrite(_rs_pin, LOW);
   for (;;) {
@@ -103,7 +103,6 @@ void CRLiquidCrystal::waitFree() {
       break;
     }
   }
-  pinMode(_busy_pin, OUTPUT);
   digitalWrite(_rw_pin, LOW);
 }
 
