@@ -60,7 +60,7 @@ void Oscillator::SetNextTick(cr_tick_t masterClock) {
   }
 }
 
-cr_fp_t Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
+void Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
    // TODO: avoid division
    cr_fp_t scaleFactor = hz / maxHz * 2;
    _hzPulseUsScale *= scaleFactor * scaleFactor;
