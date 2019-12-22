@@ -262,6 +262,7 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
   cr_fp_t p = _crio->pw;
   MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
   if (!_crio->fixedPulseEnabled()) {
+    p -= coronaUs;
     p *= audibleOscillator->pulseUsScale;
     if (midiChannel->tremoloRange) {
       p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo);

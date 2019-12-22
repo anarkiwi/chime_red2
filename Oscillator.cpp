@@ -17,7 +17,7 @@
 Oscillator::Oscillator() {
   index = 0;
   hz = 0;
-  periodOffset = 0;
+  _periodOffset = 0;
   _velocityScale = 0;
   _hzPulseUsScale = 0;
   envelope = NULL;
@@ -60,24 +60,31 @@ void Oscillator::SetNextTick(cr_tick_t masterClock) {
   }
 }
 
+cr_fp_t Oscillator::_computeHzPulseUsScale(cr_fp_t newHz, cr_fp_t maxHz) {
+   // TODO: avoid division
+   cr_fp_t scaleFactor = hz / maxHz * 2;
+   _hzPulseUsScale *= scaleFactor * scaleFactor;
+   _hzPulseUsScale = 1.0 - _hzPulseUsScale;
+   if (_hzPulseUsScale <= 0) {
+     _hzPulseUsScale = 0;
+   }
+}
+
 void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int newPeriodOffset) {
-  bool hzChange = hz != newHz || periodOffset != newPeriodOffset;
+  bool hzChange = hz != newHz || _periodOffset != newPeriodOffset;
   bool velocityChange = hzChange || (_velocityScale != newVelocityScale);
 
   if (hzChange) {
     hz = newHz;
-    periodOffset = newPeriodOffset;
+    _periodOffset = newPeriodOffset;
     cr_fp_t clockPeriod_fp = roundFixed(cr_fp_t(masterClockHz) / hz);
     _clockPeriod = clockPeriod_fp.getInteger();
-    if (_clockPeriod + periodOffset > 0) {
-      _clockPeriod = _clockPeriod + periodOffset;
+    if (_clockPeriod + _periodOffset > 0) {
+      _clockPeriod = _clockPeriod + _periodOffset;
     } else {
       _clockPeriod = 1;
     }
-    // TODO: avoid division
-    _hzPulseUsScale = hz / maxHz;
-    _hzPulseUsScale = _hzPulseUsScale * _hzPulseUsScale * _hzPulseUsScale;
-    _hzPulseUsScale = 1.0 - _hzPulseUsScale;
+    _computeHzPulseUsScale(hz, maxHz);
   }
   if (velocityChange) {
     _velocityScale = newVelocityScale;
