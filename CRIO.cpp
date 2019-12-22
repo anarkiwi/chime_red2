@@ -157,26 +157,29 @@ inline cr_fp_t CRIOLcd::_scalePot(uint8_t pin) {
   return cr_fp_t(1) - (cr_fp_t(sample) * maxAnalogRead);
 }
 
-void CRIO::pollPots() {
+bool CRIO::pollPots() {
+  return false;
 }
 
-void CRIOLcd::pollPots() {
+bool CRIOLcd::pollPots() {
   potPinType *potPin = potPinState + _nextPotPin;
   cr_fp_t sampleVal = _scalePot(potPin->pin);
-  if (sampleVal != potPin->currVal) {
-    if (sampleVal != potPin->newVal) {
-      potPin->newVal = sampleVal;
-      potPin->newValSamples = 0;
-    } else if (++(potPin->newValSamples) == potSampleWindow - 1) {
-      potPin->currVal = sampleVal;
-    }
-  }
   if (++_potSampleCount == potSampleWindow) {
     _potSampleCount = 0;
     if (++_nextPotPin == potPins) {
       _nextPotPin = 0;
     }
   }
+  if (sampleVal != potPin->currVal) {
+    if (sampleVal != potPin->newVal) {
+      potPin->newVal = sampleVal;
+      potPin->newValSamples = 0;
+    } else if (++(potPin->newValSamples) == potSampleWindow - 1) {
+      potPin->currVal = potPin->newVal;
+      return true;
+    }
+  }
+  return false;
 }
 
 void CRIO::updateLcd() {

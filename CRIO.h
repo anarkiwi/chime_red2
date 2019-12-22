@@ -35,7 +35,7 @@ class CRIO {
   void schedulePulse(cr_fp_t pulseUs);
   virtual void handlePulse();
   virtual void updateLcd();
-  virtual void pollPots();
+  virtual bool pollPots();
   virtual void updateCoeff();
   virtual void updateLcdCoeff();
   virtual bool percussionEnabled();
@@ -58,7 +58,7 @@ class CRIOLcd : public CRIO {
  public:
   CRIOLcd();
   void updateLcd();
-  void pollPots();
+  bool pollPots();
   void updateCoeff();
   void updateLcdCoeff();
   bool percussionEnabled();

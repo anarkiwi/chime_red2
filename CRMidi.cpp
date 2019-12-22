@@ -82,7 +82,9 @@ bool CRMidi::HandleControl() {
       _percussionChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
       break;
     case 3:
-      _crio->pollPots();
+      if (!_crio->pollPots()) {
+        complete = true;
+      }
       break;
     case 4:
       _crio->updateCoeff();

@@ -85,8 +85,6 @@ void masterISR() {
     } else if (oc.controlTriggered) {
       if (crmidi.HandleControl()) {
         MIDI.read();
-        crio.pollPots();
-        crio.updateCoeff();
         oc.controlTriggered = false;
       }
     }
@@ -112,6 +110,5 @@ void setup() {
 
 // cppcheck-suppress unusedFunction
 void loop() {
-  crio.updateLcdCoeff();
   crio.updateLcd(); // interruptable and slow.
 }
