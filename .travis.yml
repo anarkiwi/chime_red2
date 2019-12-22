@@ -1,3 +1,4 @@
+dist: bionic
 addons:
   apt:
     update: true
@@ -19,4 +20,4 @@ install:
   - arduino-cli lib install "MIDI Library"
 script:
   - cppcheck --enable=all --language=c++ --error-exitcode=1 --xml --inline-suppr --check-config *cpp *h *ino
-  - arduino-cli compile --verbose --fqbn arduino:sam:arduino_due_x chime_red2.ino
+  - arduino-cli compile --fqbn arduino:sam:arduino_due_x chime_red2.ino
