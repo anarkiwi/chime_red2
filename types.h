@@ -10,12 +10,19 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+// cppcheck-suppress missingIncludeSystem
 #include <stdint.h>
+// cppcheck-suppress missingIncludeSystem
 #include <ArduinoSTL.h>
+// cppcheck-suppress missingIncludeSystem
 #include <iterator>
+// cppcheck-suppress missingIncludeSystem
 #include <stack>
+// cppcheck-suppress missingIncludeSystem
 #include <deque>
+// cppcheck-suppress missingIncludeSystem
 #include <FixedPoints.h>
+// cppcheck-suppress missingIncludeSystem
 #include <FixedPointsCommon.h>
 
 typedef uint16_t cr_pulse_t;

@@ -28,10 +28,6 @@ OscillatorController::OscillatorController() {
   ResetAll();
 }
 
-Oscillator *OscillatorController::getOscillator(uint8_t index) {
-  return _oscillators + index;
-}
-
 Oscillator *OscillatorController::GetFreeOscillator() {
   if (_freeOscillators.empty()) {
     return NULL;

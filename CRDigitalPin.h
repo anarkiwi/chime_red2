@@ -10,6 +10,7 @@
 
 #ifndef DigitalPin_h
 #define DigitalPin_h
+// cppcheck-suppress missingIncludeSystem
 #include <Arduino.h>
 
 #define PINDESC(PinNumber)	g_APinDescription[PinNumber].ulPin

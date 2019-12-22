@@ -10,6 +10,7 @@
 #ifndef PINS_H
 #define PINS_H
 
+// cppcheck-suppress missingIncludeSystem
 #include <stdint.h>
 
 const uint8_t coilOutPin = 11;

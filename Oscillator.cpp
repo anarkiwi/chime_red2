@@ -20,6 +20,7 @@ Oscillator::Oscillator() {
   periodOffset = 0;
   _velocityScale = 0;
   _hzPulseUsScale = 0;
+  envelope = NULL;
   Reset();
 }
 
@@ -74,8 +75,9 @@ void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
       _clockPeriod = 1;
     }
     // TODO: avoid division
-    _hzPulseUsScale = cr_fp_t(1.0) - (hz / maxHz);
-    _hzPulseUsScale *= _hzPulseUsScale;
+    _hzPulseUsScale = hz / maxHz;
+    _hzPulseUsScale = _hzPulseUsScale * _hzPulseUsScale * _hzPulseUsScale;
+    _hzPulseUsScale = 1.0 - _hzPulseUsScale;
   }
   if (velocityChange) {
     _velocityScale = newVelocityScale;

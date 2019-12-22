@@ -18,7 +18,9 @@
 // Define when running on CR original hardware.
 // #define CR_UI 1
 
+// cppcheck-suppress missingIncludeSystem
 #include <DueTimer.h>
+// cppcheck-suppress missingIncludeSystem
 #include <MIDI.h>
 #include "types.h"
 #include "constants.h"

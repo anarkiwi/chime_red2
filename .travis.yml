@@ -1,3 +1,8 @@
+addons:
+  apt:
+    update: true
+    packages:
+      - cppcheck
 before_install:
   - export PATH=$PATH:~/bin
 install:
@@ -11,4 +16,5 @@ install:
   - arduino-cli lib install FixedPoints
   - arduino-cli lib install "MIDI Library"
 script:
+  - cppcheck --enable=all --language=c++ --error-exitcode=1 --xml --inline-suppr --check-config *cpp *h *ino
   - arduino-cli compile --verbose --fqbn arduino:sam:arduino_due_x chime_red2.ino

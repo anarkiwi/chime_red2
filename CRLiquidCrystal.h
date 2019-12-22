@@ -11,7 +11,9 @@
 #ifndef CRLiquidCrystal_h
 #define CRLiquidCrystal_h
 
+// cppcheck-suppress missingIncludeSystem
 #include <inttypes.h>
+// cppcheck-suppress missingInclude
 #include "Arduino.h"
 
 #define LCD_CLEARDISPLAY 0x01
