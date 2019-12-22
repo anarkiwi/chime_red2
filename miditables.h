@@ -12,7 +12,7 @@
 
 const cr_fp_t pitchToHz[] = {
   // 8.1757989156, // MIDI note 0 C
-  1.0 // special case - MIDI note 0 C is 1Hz for tick effect. 8Hz not that useful anyway.
+  1.0, // special case - MIDI note 0 C is 1Hz for tick effect. 8Hz not that useful anyway.
   8.6619572180, // MIDI note 1 Db
   9.1770239974, // MIDI note 2 D
   9.7227182413, // MIDI note 3 Eb
