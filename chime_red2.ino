@@ -34,6 +34,7 @@ DueTimer masterTimer = Timer.getAvailable();
 
 #define  MIDI_CHANNEL  MIDI_CHANNEL_OMNI
 struct ChimeRedSettings : public midi::DefaultSettings {
+  // cppcheck-suppress unusedStructMember
   static const bool Use1ByteParsing = true;
 };
 
@@ -103,11 +104,13 @@ void enableMidi() {
   MIDI.begin(MIDI_CHANNEL_OMNI);
 }
 
+// cppcheck-suppress unusedFunction
 void setup() {
   resetAll();
   enableMidi();
 }
 
+// cppcheck-suppress unusedFunction
 void loop() {
   crio.updateLcdCoeff();
   crio.updateLcd(); // interruptable and slow.

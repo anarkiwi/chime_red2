@@ -19,5 +19,5 @@ install:
   - arduino-cli lib install FixedPoints
   - arduino-cli lib install "MIDI Library"
 script:
-  - cppcheck --enable=all --language=c++ --error-exitcode=1 --xml --inline-suppr --check-config *cpp *h *ino
+  - cppcheck --enable=style,performance,information,portability,warning --language=c++ --error-exitcode=1 --xml --inline-suppr *cpp *h *ino
   - arduino-cli compile --fqbn arduino:sam:arduino_due_x chime_red2.ino
