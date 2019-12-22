@@ -92,6 +92,9 @@ bool CRMidi::HandleControl() {
     case 5:
       _crio->updateLcdCoeff();
       break;
+    case 6:
+      _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
+      break;
     default:
       complete = true;
   }

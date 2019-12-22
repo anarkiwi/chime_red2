@@ -15,6 +15,7 @@ vendor
 # C++ stuff
 *.bin
 *.bin.dSYM
+*.elf
 
 arduino*.tar.xz
 

@@ -53,9 +53,7 @@ inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
 }
 
 void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
-  cr_fp_t maxHz = pitchToHz[maxPitch];
   _pitchBender.SetMaxPitch(maxPitch);
-  oc->SetMaxHz(maxHz);
   int periodOffset = int(detuneAbs) - int(DEFAULT_DETUNE);
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
@@ -98,9 +96,7 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiN
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
   midiNote->velocityScale = midiValMap[velocity];
-  cr_fp_t maxHz = pitchToHz[maxPitch];
   _pitchBender.SetMaxPitch(maxPitch);
-  oc->SetMaxHz(maxHz);
   _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), midiNote, oc, int(detuneAbs) - int(DEFAULT_DETUNE));
   if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
     _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), midiNote, oc, int(detune2Abs) - int(DEFAULT_DETUNE));
