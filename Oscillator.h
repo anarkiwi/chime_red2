@@ -30,7 +30,7 @@ class Oscillator {
   AdsrEnvelope *envelope;
   uint8_t index;
  private:
-  cr_fp_t _computeHzPulseUsScale(cr_fp_t newHz, cr_fp_t maxHz);
+  cr_fp_t _computeHzPulseUsScale(cr_fp_t maxHz);
   int _periodOffset;
   cr_fp_t _hzPulseUsScale;
   cr_fp_t _velocityScale;

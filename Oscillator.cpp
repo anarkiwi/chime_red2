@@ -60,7 +60,7 @@ void Oscillator::SetNextTick(cr_tick_t masterClock) {
   }
 }
 
-cr_fp_t Oscillator::_computeHzPulseUsScale(cr_fp_t newHz, cr_fp_t maxHz) {
+cr_fp_t Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
    // TODO: avoid division
    cr_fp_t scaleFactor = hz / maxHz * 2;
    _hzPulseUsScale *= scaleFactor * scaleFactor;
@@ -84,7 +84,7 @@ void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
     } else {
       _clockPeriod = 1;
     }
-    _computeHzPulseUsScale(hz, maxHz);
+    _computeHzPulseUsScale(maxHz);
   }
   if (velocityChange) {
     _velocityScale = newVelocityScale;

@@ -79,16 +79,16 @@ bool CRMidi::HandleControl() {
       FOR_ALL_CHAN(ExpireNotes(midiChannel));
       break;
     case 2:
-      _crio->pollPots();
+      _percussionChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
       break;
     case 3:
-      _crio->updateCoeff();
+      _crio->pollPots();
       break;
     case 4:
-      _crio->updateLcdCoeff();
+      _crio->updateCoeff();
       break;
     case 5:
-      _percussionChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
+      _crio->updateLcdCoeff();
       break;
     default:
       complete = true;
