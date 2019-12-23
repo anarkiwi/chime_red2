@@ -94,15 +94,12 @@ void CRLiquidCrystal::waitFree() {
   pinMode(_busy_pin, INPUT);
   digitalWrite(_rw_pin, HIGH);
   digitalWrite(_rs_pin, LOW);
-  for (;;) {
+  bool busy = false;
+  do {
     digitalWrite(_enable_pin, HIGH);
-    uint8_t busy = digitalRead(_busy_pin);
+    busy = digitalRead(_busy_pin);
     digitalWrite(_enable_pin, LOW);
-    enablePulse();
-    if (!busy) {
-      break;
-    }
-  }
+  } while (busy);
   pinMode(_busy_pin, OUTPUT);
   digitalWrite(_rw_pin, LOW);
 }
