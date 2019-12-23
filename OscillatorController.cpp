@@ -11,9 +11,9 @@
 #include "constants.h"
 
 #define FOR_ALL_OSC(osc_func) \
-  { for (uint8_t o = 0; o < oscillatorCount; ++o) { Oscillator *oscillator = _oscillators + o; { osc_func; } } }
+  { uint8_t o = oscillatorCount; do { --o; Oscillator *oscillator = _oscillators + o; { osc_func; } } while(o); }
 #define FOR_ALL_LFO(lfo_func) \
-  { for (uint8_t l = 0; l < lfoCount; ++l) { Lfo *lfo = _lfos + l; { lfo_func; } } }
+  { uint8_t l = lfoCount; do { --l; Lfo *lfo = _lfos + l; { lfo_func; } } while(l); }
 
 
 OscillatorController::OscillatorController() {
