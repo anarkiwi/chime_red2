@@ -28,6 +28,7 @@ class CRMidi {
     void handleControlChange(byte channel, byte number, byte value);
     bool HandleControl();
     cr_fp_t Modulate(Oscillator *audibleOscillator);
+    void updateCoeff();
   private:
     MidiChannel *getOscillatorChannel(Oscillator *oscillator);
     MidiChannel *ChannelNoteValid(byte channel, byte note);

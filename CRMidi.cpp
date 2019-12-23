@@ -34,6 +34,7 @@ CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   _percussionChannel = _midiChannels + maxMidiChannel;
   _midiChannelMap[PERC_CHAN] = _percussionChannel;
   ResetAll();
+  updateCoeff();
 }
 
 MidiChannel *CRMidi::getOscillatorChannel(Oscillator *oscillator) {
@@ -69,6 +70,13 @@ inline int16_t randomBend() {
   return random(0, 16383) - 8192;
 }
 
+void CRMidi::updateCoeff() {
+  _crio->updateCoeff();
+  _crio->updateLcdCoeff();
+  _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
+  FOR_ALL_CHAN(midiChannel->SetMaxPitch(_crio->maxPitch));
+}
+
 bool CRMidi::HandleControl() {
   bool complete = false;
   switch (_controlCounter) {
@@ -87,16 +95,7 @@ bool CRMidi::HandleControl() {
       }
       break;
     case 4:
-      _crio->updateCoeff();
-      break;
-    case 5:
-      _crio->updateLcdCoeff();
-      break;
-    case 6:
-      {
-        _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
-        FOR_ALL_CHAN(midiChannel->SetMaxPitch(_crio->maxPitch));
-      }
+      updateCoeff();
       break;
     default:
       complete = true;
