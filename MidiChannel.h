@@ -79,15 +79,16 @@ class MidiChannel {
     void Reset();
     void ResetCC();
     void IdleAllNotes();
+    void SetMaxPitch(uint8_t maxPitch);
     MidiNote *LookupNote(uint8_t note);
-    void SetBend(int newBend, uint8_t maxPitch, OscillatorController *oc);
+    void SetBend(int newBend, OscillatorController *oc);
     cr_fp_t BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff);
-    void NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiNote *midiNote, OscillatorController *oc);
+    void NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc);
     void ReleaseNote(uint8_t note);
     bool ResetNote(uint8_t note);
     MidiNote *NotesExpire(OscillatorController *oc);
     void HandleControl();
-    void RetuneNotes(uint8_t maxPitch, OscillatorController *oc);
+    void RetuneNotes(OscillatorController *oc);
     uint8_t attack;
     uint8_t decay;
     uint8_t sustain;
@@ -100,11 +101,12 @@ class MidiChannel {
     uint8_t coarseModulation;
     bool lfoRestart;
    private:
-    void _AddOscillatorToNote(cr_fp_t hz,  MidiNote *midiNote, OscillatorController *oc, int periodOffset);
+    void _AddOscillatorToNote(cr_fp_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];
     PitchBender _pitchBender = PitchBender();
+    uint8_t _maxPitch;
 };
 
 #endif

@@ -29,7 +29,7 @@ void MidiChannel::ResetCC() {
   detune2 = DEFAULT_DETUNE;
   detuneAbs = DEFAULT_DETUNE;
   detune2Abs = DEFAULT_DETUNE;
-  SetBend(0, 0, 0);
+  SetBend(0, 0);
 }
 
 void MidiChannel::Reset() {
@@ -48,12 +48,18 @@ void MidiChannel::IdleAllNotes() {
   HandleControl();
 }
 
+void MidiChannel::SetMaxPitch(uint8_t maxPitch) {
+  if (maxPitch != _maxPitch) {
+    _maxPitch = maxPitch;
+    _pitchBender.SetMaxPitch(maxPitch);
+  }
+}
+
 inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
   return _noteMap[note];
 }
 
-void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
-  _pitchBender.SetMaxPitch(maxPitch);
+void MidiChannel::RetuneNotes(OscillatorController *oc) {
   int periodOffset = int(detuneAbs) - int(DEFAULT_DETUNE);
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
@@ -72,12 +78,11 @@ void MidiChannel::RetuneNotes(uint8_t maxPitch, OscillatorController *oc) {
   }
 }
 
-void MidiChannel::SetBend(int newBend, uint8_t maxPitch, OscillatorController *oc) {
-  _pitchBender.SetMaxPitch(maxPitch);
+void MidiChannel::SetBend(int newBend, OscillatorController *oc) {
   if (!_pitchBender.SetBend(newBend)) {
     return;
   }
-  RetuneNotes(maxPitch, oc);
+  RetuneNotes(oc);
 }
 
 cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff) {
@@ -92,11 +97,10 @@ void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, MidiNote *midiNote, Oscillato
   midiNote->oscillators.push_back(oscillator);
 }
 
-void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, uint8_t maxPitch, MidiNote *midiNote, OscillatorController *oc) {
+void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc) {
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
   midiNote->velocityScale = midiValMap[velocity];
-  _pitchBender.SetMaxPitch(maxPitch);
   _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), midiNote, oc, int(detuneAbs) - int(DEFAULT_DETUNE));
   if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
     _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), midiNote, oc, int(detune2Abs) - int(DEFAULT_DETUNE));

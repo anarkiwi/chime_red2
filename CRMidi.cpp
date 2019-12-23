@@ -79,7 +79,7 @@ bool CRMidi::HandleControl() {
       FOR_ALL_CHAN(ExpireNotes(midiChannel));
       break;
     case 2:
-      _percussionChannel->SetBend(randomBend(), _crio->maxPitch, _oc);
+      _percussionChannel->SetBend(randomBend(), _oc);
       break;
     case 3:
       if (!_crio->pollPots()) {
@@ -93,7 +93,10 @@ bool CRMidi::HandleControl() {
       _crio->updateLcdCoeff();
       break;
     case 6:
-      _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
+      {
+        _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
+        FOR_ALL_CHAN(midiChannel->SetMaxPitch(_crio->maxPitch));
+      }
       break;
     default:
       complete = true;
@@ -131,7 +134,7 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
   if (midiChannel->lfoRestart) {
     _oc->RestartLFOs();
   }
-  midiChannel->NoteOn(note, velocity, _crio->maxPitch, midiNote, _oc);
+  midiChannel->NoteOn(note, velocity, midiNote, _oc);
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     _oscillatorChannelMap[oscillator->index] = midiChannel;
@@ -139,7 +142,7 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
 }
 
 void CRMidi::handleNoteOff(byte channel, byte note) {
-  MidiChannel *midiChannel = ChannelNoteValid(channel, note);
+  MidiChannel *midiChannel = ChannelEnabled(channel);
   if (midiChannel == NULL) {
     return;
   }
@@ -151,7 +154,7 @@ void CRMidi::handlePitchBend(byte channel, int bend) {
   if (midiChannel == NULL) {
     return;
   }
-  midiChannel->SetBend(bend, _crio->maxPitch, _oc);
+  midiChannel->SetBend(bend, _oc);
 }
 
 void CRMidi::handleControlChange(byte channel, byte number, byte value) {
@@ -174,22 +177,22 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 95:
       SET_CC(midiChannel->detune2, value);
-      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      midiChannel->RetuneNotes(_oc);
       break;
     case 94:
       SET_CC(midiChannel->detune, value);
-      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      midiChannel->RetuneNotes(_oc);
       break;
     case 92:
       SET_CC(midiChannel->tremoloRange, value);
       break;
     case 91:
       SET_CC(midiChannel->detune2Abs, value);
-      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      midiChannel->RetuneNotes(_oc);
       break;
     case 90:
       SET_CC(midiChannel->detuneAbs, value);
-      midiChannel->RetuneNotes(_crio->maxPitch, _oc);
+      midiChannel->RetuneNotes(_oc);
       break;
     case 76:
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
@@ -254,7 +257,7 @@ void CRMidi::FMModulate(MidiChannel *midiChannel) {
     cr_fp_t bend = cr_fp_t(maxMidiPitchBend / 4);
     bend *= midiValMap[midiChannel->coarseModulation];
     bend *= _oc->vibratoLfo->Level();
-    midiChannel->SetBend(bend.getInteger(), _crio->maxPitch, _oc);
+    midiChannel->SetBend(bend.getInteger(), _oc);
   }
 }
 
