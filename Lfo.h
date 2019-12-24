@@ -14,10 +14,13 @@
 #include "constants.h"
 #include "wavetable.h"
 
+
 class Lfo {
  public:
   Lfo();
+  void Reset();
   void Restart();
+  void SetTable(uint8_t value);
   void Tick();
   void SetHz(cr_fp_t hz);
   cr_fp_t Level();

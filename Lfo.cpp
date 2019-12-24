@@ -10,9 +10,22 @@
 #include "Lfo.h"
 
 Lfo::Lfo() {
-  _table = (cr_fp_t*)SineTable;
+  Reset();
   Restart();
   SetHz(1.0);
+}
+
+void Lfo::SetTable(uint8_t value) {
+  switch (value) {
+    case 0:
+    default:
+      _table = (cr_fp_t*)SineTable;
+      break;
+  }
+}
+
+void Lfo::Reset() {
+  SetTable(0);
 }
 
 void Lfo::Restart() {
