@@ -43,9 +43,9 @@ bool Oscillator::Triggered(cr_tick_t masterClock) {
 }
 
 void Oscillator::ScheduleNext(cr_tick_t masterClock) {
-  _nextClock = masterClock + 1;
+  _nextClock = ((masterClock / _clockPeriod) + 1) * _clockPeriod;
   if (_nextClock > masterClockMax) {
-    _nextClock = 0;
+    _nextClock = _clockPeriod;
   }
 }
 
