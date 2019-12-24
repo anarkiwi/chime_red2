@@ -18,6 +18,14 @@ Lfo::Lfo() {
 void Lfo::SetTable(uint8_t value) {
   switch (value) {
     case 0:
+      _table = (cr_fp_t*)SineTable;
+      break;
+    case 1:
+      _table = (cr_fp_t*)DownSawTable;
+      break;
+    case 2:
+      _table = (cr_fp_t*)UpSawTable;
+      break;
     default:
       _table = (cr_fp_t*)SineTable;
       break;

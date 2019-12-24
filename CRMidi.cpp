@@ -204,6 +204,14 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Set LFO restart - 0 LFOs free run, > 0 LFO restart on note on (default).
       midiChannel->lfoRestart = value > 0;
       break;
+    case 86:
+      // Set vibrato LFO shape: 0 (default) sine, 1 downsaw, 2 upsaw.
+      _oc->vibratoLfo->SetTable(value);
+      break;
+    case 85:
+      // Set tremolo LFO shape: 0 (default) sine, 1 downsaw, 2 upsaw.
+      _oc->tremoloLfo->SetTable(value);
+      break;
     case 76:
       // Set global vibrato LFO speed.
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
