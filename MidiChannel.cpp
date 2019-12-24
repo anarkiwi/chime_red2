@@ -57,6 +57,9 @@ void MidiChannel::SetMaxPitch(uint8_t maxPitch) {
 }
 
 inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
+  if (note > maxMidiPitch) {
+    return NULL;
+  }
   return _noteMap[note];
 }
 
