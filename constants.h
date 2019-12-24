@@ -30,7 +30,7 @@ const cr_slowtick_t lfoClockHz = masterClockHz / lfoClockRelHz;
 const cr_slowtick_t lfoClockMax = lfoClockRelHz - 1;
 const cr_tick_t lfoTickMax = lfoClockHz - 1;
 const uint16_t maxLfoTable = 1e3 - 1;
-const cr_fp_t lfoMaxHz = 20;
+const cr_fp_t lfoMaxHz = 10;
 
 const uint8_t stdMidiChannels = 16;
 const uint8_t maxMidiChannel = 8;
