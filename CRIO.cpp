@@ -194,7 +194,7 @@ void CRIOLcd::updateLcd() {
   if (*fc != c) {
     *fc = c;
     // save a setcursor if last write positioned us.
-    if (!(_lastLcdRow == _lcdRow && _lcdCol == _lastLcdCol +1)) {
+    if (!(_lastLcdRow == _lcdRow && _lcdCol == _lastLcdCol + 1)) {
       lcd.setCursor(_lcdCol, _lcdRow);
     }
     lcd.write(c);
@@ -225,6 +225,7 @@ void CRIO::updateLcdCoeff() {
 }
 
 void CRIOLcd::updateLcdCoeff() {
+  memset(_lcdLine1, ' ', lcdWidth);
   itoa(pitchToHz[maxPitch].getInteger(), _lcdLine1, 10);
   *(_lcdLine1 + 4) = 'H';
   *(_lcdLine1 + 5) = 'z';
