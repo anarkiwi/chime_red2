@@ -200,6 +200,10 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       SET_CC(midiChannel->detuneAbs, value);
       midiChannel->RetuneNotes(_oc);
       break;
+    case 87:
+      // Set LFO restart - 0 LFOs free run, > 0 LFO restart on note on (default).
+      midiChannel->lfoRestart = value > 0;
+      break;
     case 76:
       // Set global vibrato LFO speed.
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
