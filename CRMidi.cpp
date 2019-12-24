@@ -165,8 +165,6 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
   // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
   // See AdsrEnvelope.h for envelope timers - 0 is 0ms, 127 is 4096ms.
   // See lfoMaxHz in constants.h for LFO timers - maximum is 10Hz.
-  // Detune (cents): 64 (default) is no detune, > 64 is higher frequency, < 64 is lower frequency.
-  // Fine detune is in 20us clock period steps (steps depends on freq, approx 0.07Hz/step at 261Hz, 0.7Hz/step at 880Hz).
   switch (number) {
     case 127: // Poly Mode On (Mono Off) (Note: These four messages also cause All Notes Off)
     case 126: // Mono Mode On (Poly Off) where M is the number of channels (Omni Off) or 0 (Omni On)
@@ -179,13 +177,12 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       midiChannel->ResetCC();
       break;
     case 95:
-      // Set (fine, 20us steps) channel detune of 2nd oscillator on this channel.
-      // 2nd oscillator is assigned when not 64 at note on.
+      // Set channel detune of 2nd oscillator in clock periods (20us steps).
       SET_CC(midiChannel->detune2, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 94:
-      // Set (fine, 20us steps) channel detune on this channel.
+      // Set channel detune in clock periods (20us steps).
       SET_CC(midiChannel->detune, value);
       midiChannel->RetuneNotes(_oc);
       break;
@@ -194,34 +191,29 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       SET_CC(midiChannel->tremoloRange, value);
       break;
     case 90:
-      // Set (cents) channel detune of 2nd oscillator on this channel.
-      // 2nd oscillator is assigned when not 64 at note on.
+      // Set channel detune of 2nd oscillator in cents.
       SET_CC(midiChannel->detune2Abs, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 89:
-      // Set (cents) channel detune on this channel.
+      // Set channel detune in cents.
       SET_CC(midiChannel->detuneAbs, value);
       midiChannel->RetuneNotes(_oc);
-      break;
-    case 88:
-      // Set LFO restart - 0 LFOs free run, > 0 LFO restart on note on (default).
-      midiChannel->lfoRestart = value > 0;
       break;
     case 76:
       // Set global vibrato LFO speed.
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 75:
-      // Evelope decay time (see AdsrEnvelope.h)on this channel.
+      // Evelope decay time (see AdsrEnvelope.h)
       SET_CC(midiChannel->decay, value);
       break;
     case 73:
-      // Envelope attack time (see AdsrEnvelope.h) on this channel.
+      // Envelope attack time (see AdsrEnvelope.h)
       SET_CC(midiChannel->attack, value);
       break;
     case 72:
-      // Envelope release time (see AdsrEnvelope.h) on this channel.
+      // Envelope release time (see AdsrEnvelope.h)
       SET_CC(midiChannel->release, value);
       break;
     case 27:
@@ -229,7 +221,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       _oc->configurableLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 24:
-      // Envelope sustain level on this channel.
+      // Envelope sustain level.
       SET_CC(midiChannel->sustain, value);
       break;
     case 22:
