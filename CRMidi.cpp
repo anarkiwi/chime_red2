@@ -163,6 +163,8 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
   }
   // https://www.midi.org/midi/specifications/item/table-1-summary-of-midi-message
   // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
+  // See AdsrEnvelope.h for envelope timers - 0 is 0ms, 127 is 4096ms.
+  // See lfoMaxHz in constants.h for LFO timers - maximum is 10Hz.
   switch (number) {
     case 127: // Poly Mode On (Mono Off) (Note: These four messages also cause All Notes Off)
     case 126: // Mono Mode On (Poly Off) where M is the number of channels (Omni Off) or 0 (Omni On)
@@ -175,46 +177,59 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       midiChannel->ResetCC();
       break;
     case 95:
+      // Set channel detune of 2nd oscillator in clock periods (20us steps).
       SET_CC(midiChannel->detune2, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 94:
+      // Set channel detune in clock periods (20us steps).
       SET_CC(midiChannel->detune, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 92:
+      // Set tremolo modulation level of oscillators on this channel.
       SET_CC(midiChannel->tremoloRange, value);
       break;
     case 90:
+      // Set channel detune of 2nd oscillator in cents.
       SET_CC(midiChannel->detune2Abs, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 89:
+      // Set channel detune in cents.
       SET_CC(midiChannel->detuneAbs, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 76:
+      // Set global vibrato LFO speed.
       _oc->vibratoLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 75:
+      // Evelope decay time (see AdsrEnvelope.h)
       SET_CC(midiChannel->decay, value);
       break;
     case 73:
+      // Envelope attack time (see AdsrEnvelope.h)
       SET_CC(midiChannel->attack, value);
       break;
     case 72:
+      // Envelope release time (see AdsrEnvelope.h)
       SET_CC(midiChannel->release, value);
       break;
     case 27:
+      // Set global configurable LFO speed (configurable LFO not currently used).
       _oc->configurableLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 24:
+      // Envelope sustain level.
       SET_CC(midiChannel->sustain, value);
       break;
     case 22:
+      // Set global tremolo LFO speed.
       _oc->tremoloLfo->SetHz(MIDI_TO_HZ(value));
       break;
     case 1:
+      // Set vibrato modulation level of oscillators on this channel.
       SET_CC(midiChannel->coarseModulation, value);
       break;
     default:
