@@ -24,6 +24,7 @@ class Lfo {
   void Tick();
   void SetHz(cr_fp_t hz);
   cr_fp_t Level();
+  cr_fp_t LevelProp(cr_fp_t prop);
  private:
   cr_fp_t _hz;
   uint16_t _ticks;

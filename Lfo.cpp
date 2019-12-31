@@ -17,15 +17,13 @@ Lfo::Lfo() {
 
 void Lfo::SetTable(uint8_t value) {
   switch (value) {
-    case 0:
-      _table = (cr_fp_t*)SineTable;
+    case 2:
+      _table = (cr_fp_t*)UpSawTable;
       break;
     case 1:
       _table = (cr_fp_t*)DownSawTable;
       break;
-    case 2:
-      _table = (cr_fp_t*)UpSawTable;
-      break;
+    case 0:
     default:
       _table = (cr_fp_t*)SineTable;
       break;
@@ -65,4 +63,8 @@ void Lfo::Tick() {
 
 cr_fp_t Lfo::Level() {
   return _table[_tablePos];
+}
+
+cr_fp_t Lfo::LevelProp(cr_fp_t prop) {
+  return _table[roundFixed(prop * maxLfoTable).getInteger()];
 }
