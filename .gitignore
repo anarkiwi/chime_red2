@@ -20,3 +20,5 @@ vendor
 arduino*.tar.xz
 
 *.swp
+*~
+__pycache__
