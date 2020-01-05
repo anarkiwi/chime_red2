@@ -23,6 +23,7 @@ class Oscillator {
   void SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
   void SetNextTick(cr_tick_t masterClock);
   void ScheduleNext(cr_tick_t masterClock);
+  void ScheduleNow(cr_tick_t masterClock);
   void Reset();
   cr_fp_t hz;
   cr_fp_t pulseUsScale;

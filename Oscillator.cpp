@@ -49,6 +49,13 @@ void Oscillator::ScheduleNext(cr_tick_t masterClock) {
   }
 }
 
+void Oscillator::ScheduleNow(cr_tick_t masterClock) {
+  _nextClock = masterClock + 1;
+  if (_nextClock > masterClockMax) {
+    _nextClock = 0;
+  }
+}
+
 void Oscillator::SetNextTick(cr_tick_t masterClock) {
   cr_tick_t clockRemainder = ClockRemainder(masterClock);
   if (clockRemainder < _clockPeriod) {
@@ -92,5 +99,9 @@ void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
 
 void Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
   SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset);
-  ScheduleNext(masterClock);
+  if (hz > 1.0) {
+    ScheduleNext(masterClock);
+  } else {
+    ScheduleNow(masterClock);
+  }
 }
