@@ -12,12 +12,14 @@
 #define CRIO_H
 
 #include "types.h"
+#include "constants.h"
 
 const uint8_t lcdWidth = 16;
 const uint8_t lcdLines = 2;
 const uint8_t analogBits = 12;
 const cr_fp_t maxAnalogRead = cr_fp_t(1) / cr_fp_t(4095);
-const uint8_t oneShotPulsePadUs = 2;
+const uint8_t oneShotPulsePadUs = 1;
+const uint8_t oneShotRemainderPulsePadUs = masterClockPeriodUs - oneShotPulsePadUs;
 const uint8_t potPins = 3;
 const uint8_t potSampleWindow = 5;
 
@@ -45,7 +47,6 @@ class CRIO {
   uint8_t maxPitch;
   cr_fp_t maxChargePct;
 private:
-  void oneShotPulse();
   void pulseOff();
   void pulseOn();
   bool _pulseState;

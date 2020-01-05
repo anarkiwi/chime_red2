@@ -20,7 +20,7 @@ DigitalPin<fixedVarPulseInPin> _fixedVarInPin(INPUT, LOW);
 DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
 
 #include "CRIO.h"
-#include "constants.h"
+
 
 CRLiquidCrystal lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 
@@ -89,15 +89,6 @@ inline void CRIO::pulseOff() {
   _pulseState = false;
 }
 
-void CRIO::oneShotPulse() {
-  if (_oneShotPulseUs) {
-    pulseOn();
-    delayMicroseconds(_oneShotPulseUs);
-    pulseOff();
-    _oneShotPulseUs = 0;
-  }
-}
-
 void CRIO::handlePulse() {
   ++_ticksSinceLastPulse;
   if (scheduled) {
@@ -114,20 +105,12 @@ void CRIO::handlePulse() {
 void CRIO::startPulse() {
   if (scheduled) {
     _ticksSinceLastPulse = 0;
-    if (_multiShotPulses) {
-      if (_oneShotPulseUs) {
-        if (_oneShotPulseUs >= (masterClockPeriodUs - oneShotPulsePadUs)) {
-          ++_multiShotPulses;
-        } else if (_oneShotPulseUs > oneShotPulsePadUs) {
-          delayMicroseconds((masterClockPeriodUs - _oneShotPulseUs) - oneShotPulsePadUs);
-          pulseOn();
-        }
-        _oneShotPulseUs = 0;
-      }
-    } else {
-      oneShotPulse();
-    }
     scheduled = false;
+    if (_oneShotPulseUs) {
+      delayMicroseconds(masterClockPeriodUs - _oneShotPulseUs);
+      _oneShotPulseUs = 0;
+      pulseOn();
+    }
   }
 }
 
@@ -148,6 +131,14 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
     _oneShotPulseUs -= _multiShotPulses * masterClockPeriodUs;
   } else {
     _multiShotPulses = 0;
+  }
+  if (_oneShotPulseUs) {
+    if (_oneShotPulseUs > oneShotRemainderPulsePadUs) {
+      ++_multiShotPulses;
+      _oneShotPulseUs = 0;
+    } else if (_oneShotPulseUs < oneShotPulsePadUs) {
+      _oneShotPulseUs = oneShotPulsePadUs;
+    }
   }
 }
 
