@@ -177,12 +177,12 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       midiChannel->ResetCC();
       break;
     case 95:
-      // Set channel detune of 2nd oscillator in clock periods (20us steps).
+      // Set channel detune of 2nd oscillator in cents.
       SET_CC(midiChannel->detune2, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 94:
-      // Set channel detune in clock periods (20us steps).
+      // Set channel detune in cents.
       SET_CC(midiChannel->detune, value);
       midiChannel->RetuneNotes(_oc);
       break;
@@ -191,12 +191,12 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       SET_CC(midiChannel->tremoloRange, value);
       break;
     case 90:
-      // Set channel detune of 2nd oscillator in cents.
+      // Set channel detune of 2nd oscillator in clock periods (20us steps)..
       SET_CC(midiChannel->detune2Abs, value);
       midiChannel->RetuneNotes(_oc);
       break;
     case 89:
-      // Set channel detune in cents.
+      // Set channel detune in clock periods (20us steps).
       SET_CC(midiChannel->detuneAbs, value);
       midiChannel->RetuneNotes(_oc);
       break;
