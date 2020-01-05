@@ -101,9 +101,9 @@ void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
 
 void Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
   SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset);
-  if (hz == 1.0) {
-    ScheduleNow(masterClock);
-  } else {
+  if (hz > 1.0) {
     ScheduleNext(masterClock);
+  } else {
+    ScheduleNow(masterClock);
   }
 }
