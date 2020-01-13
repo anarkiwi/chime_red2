@@ -39,6 +39,7 @@ const cr_fp_t maxMidiPitchBend = 8192;
 const uint8_t absMaxMidiPitch = 127;
 const uint8_t maxMidiPitch = 96;
 const uint8_t maxMidiVal = 127;
+const uint8_t midiPitchBendRange = 12;
 
 const uint8_t lfoCount = 3;
 

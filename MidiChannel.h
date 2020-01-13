@@ -26,7 +26,7 @@ class PitchBender {
     _pitchBendScale = 0;
     _pitchBendDiff = 0;
     SetMaxPitch(0);
-    SetPitchBendRange(12);
+    SetPitchBendRange(midiPitchBendRange);
   };
   void SetMaxPitch(uint8_t maxPitch) {
     _maxPitch = maxPitch;
@@ -89,6 +89,7 @@ class MidiChannel {
     MidiNote *NotesExpire(OscillatorController *oc);
     void HandleControl();
     void RetuneNotes(OscillatorController *oc);
+    void SetPitchBendRange(uint8_t semitones);
     uint8_t attack;
     uint8_t decay;
     uint8_t sustain;

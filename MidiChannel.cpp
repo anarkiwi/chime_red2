@@ -31,6 +31,7 @@ void MidiChannel::ResetCC() {
   detune2Abs = DEFAULT_DETUNE;
   _maxPitch = 0;
   SetBend(0, 0);
+  SetPitchBendRange(midiPitchBendRange);
 }
 
 void MidiChannel::Reset() {
@@ -158,4 +159,8 @@ void MidiChannel::HandleControl() {
       _midiNotes.push_front(midiNote);
     }
   }
+}
+
+void MidiChannel::SetPitchBendRange(uint8_t semitones) {
+  _pitchBender.SetPitchBendRange(semitones);
 }

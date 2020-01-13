@@ -228,6 +228,11 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Envelope release time (see AdsrEnvelope.h)
       SET_CC(midiChannel->release, value);
       break;
+    case 31:
+      // Set pitchbend range in semitones (max 12).
+      // Officially we should RPNs, but Ableton among others can't send RPNs out of the box.
+      midiChannel->SetPitchBendRange(min(value, midiPitchBendRange));
+      break;
     case 27:
       // Set global configurable LFO speed (configurable LFO not currently used).
       _oc->configurableLfo->SetHz(MIDI_TO_HZ(value));
