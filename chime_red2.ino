@@ -72,22 +72,32 @@ inline void resetAll() {
 }
 
 void masterISR() {
-  crio.handlePulse();
-  oc.Tick();
+  bool remainderPulse = crio.handlePulse();
+  if (remainderPulse) {
+    crio.slipTick = true;
+    return;
+  }
   Oscillator *audibleOscillator = NULL;
+  oc.Tick();
+  if (crio.slipTick) {
+    oc.Triggered(&audibleOscillator);
+    oc.Tick();
+    oc.Triggered(&audibleOscillator);
+    crio.slipTick = false;
+    return;
+  }
   if (oc.Triggered(&audibleOscillator)) {
     if (audibleOscillator) {
       cr_fp_t p = crmidi.Modulate(audibleOscillator);
       crio.schedulePulse(p);
-    }
-  } else {
-    if (crio.scheduled) {
       crio.startPulse();
-    } else if (oc.controlTriggered) {
-      if (crmidi.HandleControl()) {
-        MIDI.read();
-        oc.controlTriggered = false;
-      }
+    }
+    return;
+  }
+  if (oc.controlTriggered) {
+    if (crmidi.HandleControl()) {
+      MIDI.read();
+      oc.controlTriggered = false;
     }
   }
 }

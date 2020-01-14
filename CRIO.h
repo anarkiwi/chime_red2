@@ -35,7 +35,7 @@ class CRIO {
   CRIO();
   void startPulse();
   void schedulePulse(cr_fp_t pulseUs);
-  virtual void handlePulse();
+  virtual bool handlePulse();
   virtual void updateLcd();
   virtual bool pollPots();
   virtual void updateCoeff();
@@ -43,6 +43,7 @@ class CRIO {
   virtual bool percussionEnabled();
   virtual bool fixedPulseEnabled();
   bool scheduled;
+  bool slipTick;
   cr_fp_t pw;
   uint8_t maxPitch;
   cr_fp_t maxChargePct;

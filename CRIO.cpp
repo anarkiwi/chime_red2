@@ -27,6 +27,7 @@ CRLiquidCrystal lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 
 CRIO::CRIO() {
   scheduled = false;
+  slipTick = false;
   _oneShotPulseUs = 0;
   _multiShotPulses = 0;
   _pulseState = false;
@@ -89,28 +90,30 @@ inline void CRIO::pulseOff() {
   _pulseState = false;
 }
 
-void CRIO::handlePulse() {
+bool CRIO::handlePulse() {
   ++_ticksSinceLastPulse;
   if (scheduled) {
-    return;
+    return false;
   }
   if (_multiShotPulses == 0) {
+    if (_oneShotPulseUs) {
+      delayMicroseconds(_oneShotPulseUs);
+      _oneShotPulseUs = 0;
+      pulseOff();
+      return true;
+    }
     pulseOff();
-    return;
+    return false;
   }
   pulseOn();
   --_multiShotPulses;
+  return false;
 }
 
 void CRIO::startPulse() {
   if (scheduled) {
     _ticksSinceLastPulse = 0;
     scheduled = false;
-    if (_oneShotPulseUs) {
-      delayMicroseconds(masterClockPeriodUs - _oneShotPulseUs);
-      _oneShotPulseUs = 0;
-      pulseOn();
-    }
   }
 }
 
