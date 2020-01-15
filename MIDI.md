@@ -38,7 +38,7 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 |73|0|ADSR attack time| 0-127 is 0 to 4s, as an expotential curve.
 |72|0|ADSR release time| 0-127 is 0 to 4s, as an expotential curve.
 |31|12|Pitchbend range in semitones| Normally set by an RPN, but DAWs such as Ableton do not natively support sending RPNs.
-|24|127|ADSR Sustain level|
+|24|127|ADSR sustain level|
 |22|0|Tremolo LFO frequency| 0-127 is 0 to 10Hz
 |1|0|Vibrato LFO range|Set the level this channel's notes will be affected by the vibrato LFO (0 is no vibrato).
 
