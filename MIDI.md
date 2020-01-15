@@ -18,6 +18,8 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 
 * When automating use of the MIDI CC messages specified below, ensure that you explicitly automate starting, and returning the CC value to its default (ie. in Ableton, the automation line for the CC value should be set back to default at the end of a MIDI clip). This ensures that the CC value will always be consistent whenever the DAW or CR2 are restarted.
 * Setting ADSR envelope values should be done before sending a MIDI note. Sending ADSR values while a note is playing will have no effect.
+* Avoid holding notes more than 2-3s. Depending on your coil, you may be controlling many kW of power! It's easy to use that power but continuous long notes (especially higher notes, over 440Hz), can stressful for the coil and its power supply.
+
 
 ## Supported MIDI CC messages
 
