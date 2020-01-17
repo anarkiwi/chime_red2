@@ -26,6 +26,7 @@ class CRMidi {
     void handleNoteOff(byte channel, byte note);
     void handlePitchBend(byte channel, int bend);
     void handleControlChange(byte channel, byte number, byte value);
+    void handleProgramChange(byte channel, byte number);
     bool HandleControl();
     cr_fp_t Modulate(Oscillator *audibleOscillator);
     void updateCoeff();

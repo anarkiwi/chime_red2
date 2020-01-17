@@ -63,6 +63,10 @@ inline void handleControlChange(byte channel, byte number, byte value) {
   crmidi.handleControlChange(channel, number, value);
 }
 
+inline void handleProgramChange(byte channel, byte number) {
+  crmidi.handleProgramChange(channel, number);
+}
+
 inline void handlePitchBend(byte channel, int bend) {
   crmidi.handlePitchBend(channel, bend);
 }
@@ -108,6 +112,7 @@ void enableMidi() {
   MIDI.setHandleNoteOff(handleNoteOff);
   MIDI.setHandleSystemReset(resetAll);
   MIDI.setHandleControlChange(handleControlChange);
+  MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.setHandlePitchBend(handlePitchBend);
   // TODO: put serial port in poll only mode.
   MIDI.begin(MIDI_CHANNEL_OMNI);

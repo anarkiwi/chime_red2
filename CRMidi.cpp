@@ -108,6 +108,7 @@ bool CRMidi::HandleControl() {
   return complete;
 }
 
+
 MidiChannel *CRMidi::ChannelNoteValid(byte channel, byte note) {
   if (note > _crio->maxPitch) {
     return NULL;
@@ -254,6 +255,19 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Set vibrato modulation level of oscillators on this channel.
       SET_CC(midiChannel->coarseModulation, value);
       break;
+    default:
+      break;
+  }
+}
+
+void CRMidi::handleProgramChange(byte channel, byte number) {
+  MidiChannel *midiChannel = ChannelEnabled(channel);
+  if (midiChannel == NULL) {
+    return;
+  }
+  AllNotesOff(midiChannel);
+  midiChannel->ResetCC();
+  switch (number) {
     default:
       break;
   }
