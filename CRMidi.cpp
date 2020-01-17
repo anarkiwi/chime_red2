@@ -233,6 +233,11 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Officially we should RPNs, but Ableton among others can't send RPNs out of the box.
       midiChannel->SetPitchBendRange(min(value, midiPitchBendRange));
       break;
+    case 30:
+      // Same as CC 121. Officially we should only use CC 121, but Ableton among others can't
+      // manually send 121 and we want to be able reset all parameters easily.
+      midiChannel->ResetCC();
+      break;
     case 27:
       // Set global configurable LFO speed (configurable LFO not currently used).
       _oc->configurableLfo->SetHz(MIDI_TO_HZ(value));
