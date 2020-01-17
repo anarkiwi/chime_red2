@@ -46,7 +46,7 @@ class CRIO {
   bool slipTick;
   cr_fp_t pw;
   uint8_t maxPitch;
-  cr_fp_t maxChargePct;
+  cr_fp_t breakoutUs;
 private:
   void pulseOff();
   void pulseOn();

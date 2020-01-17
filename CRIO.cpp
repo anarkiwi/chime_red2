@@ -33,7 +33,7 @@ CRIO::CRIO() {
   _pulseState = false;
   pw = pulseWindowUs;
   maxPitch = maxMidiPitch;
-  maxChargePct = 100;
+  breakoutUs = minBreakoutUs;
   _ticksSinceLastPulse = 0;
 }
 
@@ -207,12 +207,12 @@ void CRIO::updateCoeff() {
 }
 
 void CRIOLcd::updateCoeff() {
+  breakoutUs = ((maxBreakoutUs - minBreakoutUs) * _maxChargePot->currVal) + minBreakoutUs;
   pw = _pwPot->currVal * pulseWindowUs;
   if (pw < breakoutUs) {
     pw = breakoutUs;
   }
   maxPitch = roundFixed(_prPot->currVal * cr_fp_t(maxMidiPitch)).getInteger();
-  maxChargePct = _maxChargePot->currVal * 100;
 }
 
 void CRIO::updateLcdCoeff() {
@@ -225,6 +225,6 @@ void CRIOLcd::updateLcdCoeff() {
   *(_lcdLine1 + 5) = 'z';
   itoa(pw.getInteger(), _lcdLine1+7, 10);
   *(_lcdLine1 + 10) = 'u';
-  itoa(maxChargePct.getInteger(), _lcdLine1+12, 10);
-  *(_lcdLine1 + 15) = '%';
+  itoa(breakoutUs.getInteger(), _lcdLine1+12, 10);
+  *(_lcdLine1 + 15) = 'u';
 }
