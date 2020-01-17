@@ -11,12 +11,14 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 * CR2 is velocity sensitive (larger velocity values will play lower). CR2 does not support aftertouch.
 * CR2 has 3 LFOs. One (the "configurable" LFO) is reserved for future use. The other two are for vibrato and tremolo effects. The LFOs globally affect all channels that have their vibrato or tremolo range set (in other words, if two channels have a non-zero vibrato range set, and the vibrato LFO frequency is changed, both channels will be affected).
 * CR2 does not currently use clock messages (they are ignored, but may be used in the future to synchronize LFOs - see below).
-* CR2 does not currently support program changes, or saving channel parameters.
+* CR2 does not currently support saving channel parameters.
 * CR2 does not use MIDI RPN or NRPN messages (but it is possible to set the pitch bend range - see below).
 
 ## Best practices
 
-* When automating use of the MIDI CC messages specified below, or pitchbends, ensure that you explicitly automate starting, and returning the CC value to its default (ie. in Ableton, the automation line for the CC value should be set back to default at the end of a MIDI clip). This ensures that the CC value will always be consistent whenever the DAW or CR2 are restarted.
+* If your DAW or controller can send program changes, then send a program change (the number does not matter) to reset all CC values and pitchbend to defaults.
+* Sending MIDI CC 30 (the value does not matter) will do the same reset as a program change,
+* If you don't reset CC values and pitchbends via one of the above methods, then when automating use of the MIDI CC messages specified below or pitchbends, ensure that you explicitly automate starting, and returning the CC value to its default (ie. in Ableton, the automation line for the CC value should be set back to default at the end of a MIDI clip). This ensures that the CC value will always be consistent whenever the DAW or CR2 are restarted.
 * Setting ADSR envelope values should be done before sending a MIDI note. Sending ADSR values while a note is playing will have no effect.
 * Avoid holding notes more than 2-3s. Depending on your coil, you may be controlling many kW of power! It's easy to use that power but continuous long notes (especially higher notes, over 440Hz), can stressful for the coil and its power supply.
 
