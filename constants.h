@@ -10,7 +10,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-const cr_fp_t coronaUs = 8;
+const cr_fp_t breakoutUs = 8;
 const cr_fp_t pulseWindowUs = 120;
 const uint8_t pulseGuardTicks = 1;
 

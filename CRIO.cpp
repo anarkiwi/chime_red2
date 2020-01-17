@@ -208,8 +208,8 @@ void CRIO::updateCoeff() {
 
 void CRIOLcd::updateCoeff() {
   pw = _pwPot->currVal * pulseWindowUs;
-  if (pw < coronaUs) {
-    pw = coronaUs;
+  if (pw < breakoutUs) {
+    pw = breakoutUs;
   }
   maxPitch = roundFixed(_prPot->currVal * cr_fp_t(maxMidiPitch)).getInteger();
   maxChargePct = _maxChargePot->currVal * 100;
