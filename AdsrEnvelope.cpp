@@ -294,6 +294,7 @@ void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t
     _decayDec = (1.0 - _sustain) * (1.0 / _decay) * controlClockTickMs;
   }
   level = 0;
+  _ageMs = 0;
   SetInitialPhase();
 }
 
@@ -335,14 +336,10 @@ void AdsrEnvelope::Release() {
 }
 
 void AdsrEnvelope::HandleControl() {
-  _ageMs += controlClockTickMs;
   switch (_phase) {
-    case ENV_SUSTAIN:
-      break;
-    case ENV_IDLE:
-      break;
     case ENV_ATTACK: {
         level += _attackInc;
+        _ageMs += controlClockTickMs;
         if (level >= 1.0 || _ageMs > _attack) {
           Decay();
         }
@@ -350,6 +347,7 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_DECAY: {
         level -= _decayDec;
+        _ageMs += controlClockTickMs;
         if (level <= _sustain || _ageMs > _decay) {
           Sustain();
         }
@@ -357,11 +355,14 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_RELEASE: {
         level -= _releaseDec;
+        _ageMs += controlClockTickMs;
         if (level <= 0 || _ageMs > _release) {
           Idle();
         }
       }
       break;
+    case ENV_SUSTAIN:
+    case ENV_IDLE:
     default:
       break;
   }
