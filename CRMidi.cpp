@@ -251,6 +251,10 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Set global tremolo LFO speed.
       _oc->tremoloLfo->SetHz(MIDI_TO_HZ(value));
       break;
+    case 7:
+      // Set channel volume.
+      SET_CC(midiChannel->volume, value);
+      break;
     case 1:
       // Set vibrato modulation level of oscillators on this channel.
       SET_CC(midiChannel->coarseModulation, value);
@@ -326,6 +330,9 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
       p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo);
     }
     p *= audibleOscillator->envelope->level;
+    if (midiChannel->volume != 127) {;
+      p *= midiValMap[midiChannel->volume];
+    }
     p += _crio->breakoutUs;
   }
   if (_percussionChannel != midiChannel) {

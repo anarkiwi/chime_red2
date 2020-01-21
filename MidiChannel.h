@@ -100,6 +100,7 @@ class MidiChannel {
     uint8_t detune2Abs;
     uint8_t tremoloRange;
     uint8_t coarseModulation;
+    uint8_t volume;
     bool lfoRestart;
    private:
     void _AddOscillatorToNote(cr_fp_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);

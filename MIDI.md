@@ -45,6 +45,7 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 |30|0|Reset all CC values (same as 121 - some DAWs such as Ableton do not allow manually sending CC 121).
 |24|127|ADSR sustain level|
 |22|0|Tremolo LFO frequency| 0-127 is 0 to 10Hz
+|7|127|Volume of all notes on this channel
 |1|0|Vibrato LFO range|Set the level this channel's notes will be affected by the vibrato LFO (0 is no vibrato).
 
 

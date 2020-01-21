@@ -30,6 +30,7 @@ void MidiChannel::ResetCC() {
   detuneAbs = DEFAULT_DETUNE;
   detune2Abs = DEFAULT_DETUNE;
   _maxPitch = 0;
+  volume = 127;
   SetBend(0, 0);
   SetPitchBendRange(midiPitchBendRange);
 }
