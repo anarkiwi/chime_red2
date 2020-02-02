@@ -278,7 +278,7 @@ const cr_fp_t AdsrCurveLevelStep[] = {
 };
 
 AdsrEnvelope::AdsrEnvelope() {
-  Reset(maxMidiVal, maxMidiVal, maxMidiVal, maxMidiVal);
+  Reset(0, 0, maxMidiVal, 0);
 }
 
 void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t release) {
@@ -289,9 +289,14 @@ void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t
   _sustain = midiValMap[sustain];
   _release = AdsrCurveMs[release];
   _releaseDec = AdsrCurveLevelStep[release];
-  // TODO: optimize this case - decay not often used.
-  if (decay && sustain < maxMidiVal) {
-    _decayDec = (1.0 - _sustain) * (1.0 / _decay) * controlClockTickMs;
+  if (attack == 0 && decay == 0 && sustain == maxMidiVal && release == 0) {
+    isNull = true;
+  } else {
+    isNull = false;
+    // TODO: optimize this case - decay not often used.
+    if (decay && sustain < maxMidiVal) {
+      _decayDec = (1.0 - _sustain) * (1.0 / _decay) * controlClockTickMs;
+    }
   }
   level = 0;
   _ageMs = 0;

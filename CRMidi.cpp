@@ -108,7 +108,6 @@ bool CRMidi::HandleControl() {
   return complete;
 }
 
-
 MidiChannel *CRMidi::ChannelNoteValid(byte channel, byte note) {
   if (note > _crio->maxPitch) {
     return NULL;
@@ -315,9 +314,9 @@ void CRMidi::FMModulate(MidiChannel *midiChannel) {
   }
 }
 
-inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, Lfo *lfo) {
+inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, cr_fp_t level) {
   cr_fp_t dp = (p / cr_fp_t(2)) * depth;
-  return p - (dp + (dp * lfo->Level()));
+  return p - (dp + (dp * level));
 }
 
 cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
@@ -327,10 +326,12 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
     p -= _crio->breakoutUs;
     p *= audibleOscillator->pulseUsScale;
     if (midiChannel->tremoloRange) {
-      p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo);
+      p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo->Level());
     }
-    p *= audibleOscillator->envelope->level;
-    if (midiChannel->volume != 127) {;
+    if (!audibleOscillator->envelope->isNull) {
+      p *= audibleOscillator->envelope->level;
+    }
+    if (midiChannel->volume != maxMidiVal) {
       p *= midiValMap[midiChannel->volume];
     }
     p += _crio->breakoutUs;

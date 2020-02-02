@@ -23,6 +23,7 @@ class AdsrEnvelope {
   void Release();
   void HandleControl();
   cr_fp_t level;
+  bool isNull;
  private:
   enum { ENV_ATTACK, ENV_DECAY, ENV_SUSTAIN, ENV_RELEASE, ENV_IDLE };
   void SetInitialPhase();
