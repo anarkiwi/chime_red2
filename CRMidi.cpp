@@ -14,12 +14,20 @@
 #define GET_CHAN(channel) _midiChannelMap[channel]
 #define FOR_ALL_CHAN(channel_func) \
   { uint8_t c =  midiChannelStorage; do { --c; MidiChannel *midiChannel = _midiChannels + c; { channel_func; } } while(c); }
-#define SET_CC(cc_attr, value) { if (cc_attr != value) { cc_attr = value; } }
 #define MIDI_TO_HZ(value) (midiValMap[value] * cr_fp_t(lfoMaxHz))
+
+bool CRMidi::setCC(uint8_t *value, uint8_t newValue) {
+  if (*value != newValue) {
+    *value = newValue;
+    return true;
+  }
+  return false;
+}
 
 CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   _oc = oc;
   _crio = crio;
+  _noiseModPending = false;
   _oc->ResetAll();
   _controlCounter = 0;
   bzero(&_oscillatorChannelMap, sizeof(_oscillatorChannelMap));
@@ -87,7 +95,10 @@ bool CRMidi::HandleControl() {
       FOR_ALL_CHAN(ExpireNotes(midiChannel));
       break;
     case 2:
-      _percussionChannel->SetBend(randomBend(), _oc);
+      if (!_noiseModPending) {
+        _percussionChannel->SetBend(randomBend(), _oc);
+        _noiseModPending = true;
+      }
       break;
     case 3:
       if (!_crio->pollPots()) {
@@ -161,6 +172,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
   if (midiChannel == NULL) {
     return;
   }
+  bool requireRetune = false;
   // https://www.midi.org/midi/specifications/item/table-1-summary-of-midi-message
   // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
   // See AdsrEnvelope.h for envelope timers - 0 is 0ms, 127 is 4096ms.
@@ -178,27 +190,23 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 95:
       // Set channel detune of 2nd oscillator in cents.
-      SET_CC(midiChannel->detune2, value);
-      midiChannel->RetuneNotes(_oc);
+      requireRetune = setCC(&(midiChannel->detune2), value);
       break;
     case 94:
       // Set channel detune in cents.
-      SET_CC(midiChannel->detune, value);
-      midiChannel->RetuneNotes(_oc);
+      requireRetune = setCC(&(midiChannel->detune), value);
       break;
     case 92:
       // Set tremolo modulation level of oscillators on this channel.
-      SET_CC(midiChannel->tremoloRange, value);
+      setCC(&(midiChannel->tremoloRange), value);
       break;
     case 90:
-      // Set channel detune of 2nd oscillator in clock periods (20us steps)..
-      SET_CC(midiChannel->detune2Abs, value);
-      midiChannel->RetuneNotes(_oc);
+      // Set channel detune of 2nd oscillator in clock periods (20us steps).
+      requireRetune = setCC(&(midiChannel->detune2Abs), value);
       break;
     case 89:
       // Set channel detune in clock periods (20us steps).
-      SET_CC(midiChannel->detuneAbs, value);
-      midiChannel->RetuneNotes(_oc);
+      requireRetune = setCC(&(midiChannel->detuneAbs), value);
       break;
     case 87:
       // Set LFO restart - 0 LFOs free run, > 0 LFO restart on note on (default).
@@ -218,15 +226,15 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 75:
       // Evelope decay time (see AdsrEnvelope.h)
-      SET_CC(midiChannel->decay, value);
+      setCC(&(midiChannel->decay), value);
       break;
     case 73:
       // Envelope attack time (see AdsrEnvelope.h)
-      SET_CC(midiChannel->attack, value);
+      setCC(&(midiChannel->attack), value);
       break;
     case 72:
       // Envelope release time (see AdsrEnvelope.h)
-      SET_CC(midiChannel->release, value);
+      setCC(&(midiChannel->release), value);
       break;
     case 31:
       // Set pitchbend range in semitones (max 12).
@@ -244,7 +252,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 24:
       // Envelope sustain level.
-      SET_CC(midiChannel->sustain, value);
+      setCC(&(midiChannel->sustain), value);
       break;
     case 22:
       // Set global tremolo LFO speed.
@@ -252,14 +260,17 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 7:
       // Set channel volume.
-      SET_CC(midiChannel->volume, value);
+      setCC(&(midiChannel->volume), value);
       break;
     case 1:
       // Set vibrato modulation level of oscillators on this channel.
-      SET_CC(midiChannel->coarseModulation, value);
+      setCC(&(midiChannel->coarseModulation), value);
       break;
     default:
       break;
+  }
+  if (requireRetune) {
+    midiChannel->RetuneNotes(_oc);
   }
 }
 
@@ -336,7 +347,9 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
     }
     p += _crio->breakoutUs;
   }
-  if (_percussionChannel != midiChannel) {
+  if (_percussionChannel == midiChannel) {
+    _noiseModPending = false;
+  } else {
     FMModulate(midiChannel);
   }
   return p;

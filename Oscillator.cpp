@@ -80,7 +80,7 @@ void Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
   }
 }
 
-void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int newPeriodOffset) {
+bool Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int newPeriodOffset) {
   bool hzChange = hz != newHz || _periodOffset != newPeriodOffset;
   bool velocityChange = hzChange || (_velocityScale != newVelocityScale);
 
@@ -100,13 +100,15 @@ void Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
     _velocityScale = newVelocityScale;
     pulseUsScale = _hzPulseUsScale * _velocityScale;
   }
+  return hzChange || velocityChange;
 }
 
-void Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
-  SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset);
-  if (hz > 1.0) {
-    ScheduleNext(masterClock);
-  } else {
-    ScheduleNow(masterClock);
+bool Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
+  if (SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset)) {
+    if (hz > 1.0) {
+      ScheduleNext(masterClock);
+    } else {
+      ScheduleNow(masterClock);
+    }
   }
 }

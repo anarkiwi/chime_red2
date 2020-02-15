@@ -19,8 +19,8 @@ class Oscillator {
   Oscillator();
   cr_tick_t TicksUntilTriggered(cr_tick_t masterClock);
   bool Triggered(cr_tick_t masterClock);
-  void SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
-  void SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
+  bool SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
+  bool SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
   void SetNextTick(cr_tick_t masterClock);
   void ScheduleNext(cr_tick_t masterClock);
   void ScheduleNow(cr_tick_t masterClock);
