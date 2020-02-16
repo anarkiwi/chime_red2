@@ -52,12 +52,13 @@ void Oscillator::ScheduleNow(cr_tick_t masterClock) {
   }
 }
 
-void Oscillator::SetNextTick(cr_tick_t masterClock, cr_tick_t clockRemainder) {
+cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock, cr_tick_t clockRemainder) {
   if (clockRemainder < _clockPeriod) {
     _nextClock = (_clockPeriod - clockRemainder) - 1;
   } else {
     _nextClock += _clockPeriod;
   }
+  return _clockPeriod;
 }
 
 void Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
