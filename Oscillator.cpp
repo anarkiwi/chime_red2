@@ -27,19 +27,15 @@ void Oscillator::Reset() {
   SetFreq(2, 1, 0, 2, 0);
 }
 
-inline cr_tick_t Oscillator::ClockRemainder(cr_tick_t masterClock) {
-  return masterClockMax - masterClock;
-}
-
-cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock) {
+cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
   if (masterClock > _nextClock) {
-    return _nextClock + ClockRemainder(masterClock);
+    return _nextClock + clockRemainder;
   }
   return _nextClock - masterClock;
 }
 
-bool Oscillator::Triggered(cr_tick_t masterClock) {
-  return TicksUntilTriggered(masterClock) == 0;
+bool Oscillator::Triggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
+  return TicksUntilTriggered(masterClock, clockRemainder) == 0;
 }
 
 void Oscillator::ScheduleNext(cr_tick_t masterClock) {
@@ -56,8 +52,7 @@ void Oscillator::ScheduleNow(cr_tick_t masterClock) {
   }
 }
 
-void Oscillator::SetNextTick(cr_tick_t masterClock) {
-  cr_tick_t clockRemainder = ClockRemainder(masterClock);
+void Oscillator::SetNextTick(cr_tick_t masterClock, cr_tick_t clockRemainder) {
   if (clockRemainder < _clockPeriod) {
     _nextClock = (_clockPeriod - clockRemainder) - 1;
   } else {

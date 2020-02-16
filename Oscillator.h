@@ -17,11 +17,11 @@
 class Oscillator {
  public:
   Oscillator();
-  cr_tick_t TicksUntilTriggered(cr_tick_t masterClock);
-  bool Triggered(cr_tick_t masterClock);
+  cr_tick_t TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder);
+  bool Triggered(cr_tick_t masterClock, cr_tick_t clockRemainder);
   bool SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
   bool SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
-  void SetNextTick(cr_tick_t masterClock);
+  void SetNextTick(cr_tick_t masterClock, cr_tick_t clockRemainder);
   void ScheduleNext(cr_tick_t masterClock);
   void ScheduleNow(cr_tick_t masterClock);
   void Reset();

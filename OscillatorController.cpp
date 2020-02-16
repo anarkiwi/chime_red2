@@ -77,11 +77,11 @@ void OscillatorController::RestartLFOs() {
   FOR_ALL_LFO(lfo->Restart());
 }
 
-void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
+void OscillatorController::Reschedule(Oscillator **audibleOscillator, cr_tick_t clockRemainder) {
   cr_tick_t minNextTriggeredTicks = masterClockMax;
   FOR_ALL_OSC(
-    if (oscillator->Triggered(_masterClock)) {
-      oscillator->SetNextTick(_masterClock);
+    if (oscillator->Triggered(_masterClock, clockRemainder)) {
+      oscillator->SetNextTick(_masterClock, clockRemainder);
       if (oscillator->audible) {
         // Always pick the highest frequency audible oscillator.
         if (*audibleOscillator == NULL || (oscillator->hz > (*audibleOscillator)->hz)) {
@@ -89,7 +89,7 @@ void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
         }
       }
     }
-    cr_tick_t nextTriggeredTicks = oscillator->TicksUntilTriggered(_masterClock);
+    cr_tick_t nextTriggeredTicks = oscillator->TicksUntilTriggered(_masterClock, clockRemainder);
     if (nextTriggeredTicks < minNextTriggeredTicks) {
       _nextTriggeredOscillator = oscillator;
       minNextTriggeredTicks = nextTriggeredTicks;
@@ -100,8 +100,9 @@ void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
 
 bool OscillatorController::Triggered(Oscillator **audibleOscillator) {
   *audibleOscillator = NULL;
-  if (_reschedulePending || _nextTriggeredOscillator->Triggered(_masterClock)) {
-    Reschedule(audibleOscillator);
+  cr_tick_t clockRemainder = masterClockMax - _masterClock;
+  if (_reschedulePending || _nextTriggeredOscillator->Triggered(_masterClock, clockRemainder)) {
+    Reschedule(audibleOscillator, clockRemainder);
     return true;
   }
   return false;
