@@ -35,10 +35,10 @@ inline void Oscillator::_updateNextClock(cr_tick_t newNextClock) {
 }
 
 cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
-  if (masterClock > _nextClock) {
-    return _nextClock + clockRemainder;
+  if (masterClock <= _nextClock) {
+    return _nextClock - masterClock;
   }
-  return _nextClock - masterClock;
+  return _nextClock + clockRemainder;
 }
 
 bool Oscillator::Triggered(cr_tick_t masterClock) {
@@ -46,7 +46,14 @@ bool Oscillator::Triggered(cr_tick_t masterClock) {
 }
 
 void Oscillator::ScheduleNext(cr_tick_t masterClock) {
-  _updateNextClock(((masterClock / _clockPeriod) + 1) * _clockPeriod);
+  cr_tick_t newNextClock = ((masterClock / _clockPeriod) + 1) * _clockPeriod;
+  // Avoid destructive interface.
+  if (_clockPeriod & 1) {
+    newNextClock += pulseGuardTicks;
+  } else {
+    newNextClock -= pulseGuardTicks;
+  }
+  _updateNextClock(newNextClock);
 }
 
 void Oscillator::ScheduleNow(cr_tick_t masterClock) {
