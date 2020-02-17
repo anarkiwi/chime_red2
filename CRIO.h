@@ -21,7 +21,7 @@ const cr_fp_t maxAnalogRead = cr_fp_t(1) / cr_fp_t(4095);
 const uint8_t oneShotPulsePadUs = 1;
 const uint8_t oneShotRemainderPulsePadUs = masterClockPeriodUs - oneShotPulsePadUs;
 const uint8_t potPins = 3;
-const uint8_t potSampleWindow = 5;
+const uint8_t potSampleWindow = 16;
 
 typedef struct {
   uint8_t pin;
