@@ -30,7 +30,7 @@ void Oscillator::Reset() {
 inline void Oscillator::_updateNextClock(cr_tick_t newNextClock) {
   _nextClock = newNextClock;
   if (_nextClock > masterClockMax) {
-    _nextClock -= masterClockMax;
+    _nextClock -= masterClockHz;
   }
 }
 
