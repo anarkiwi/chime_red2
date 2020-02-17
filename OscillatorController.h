@@ -32,7 +32,7 @@ class OscillatorController {
   Lfo *vibratoLfo;
   Lfo *configurableLfo;
  private:
-  void Reschedule(Oscillator **audibleOscillator, cr_tick_t clockRemainder);
+  void Reschedule(Oscillator **audibleOscillator);
   Lfo _lfos[lfoCount];
   Oscillator _oscillators[oscillatorCount];
   cr_fp_t _maxHz;

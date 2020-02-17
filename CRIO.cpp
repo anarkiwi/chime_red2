@@ -97,9 +97,10 @@ bool CRIO::handlePulse() {
   }
   if (_multiShotPulses == 0) {
     if (_oneShotPulseUs) {
+      pulseOn();
       delayMicroseconds(_oneShotPulseUs);
-      _oneShotPulseUs = 0;
       pulseOff();
+      _oneShotPulseUs = 0;
       return true;
     }
     pulseOff();

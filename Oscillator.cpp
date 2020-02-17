@@ -27,6 +27,13 @@ void Oscillator::Reset() {
   SetFreq(2, 1, 0, 2, 0);
 }
 
+inline void Oscillator::_updateNextClock(cr_tick_t newNextClock) {
+  _nextClock = newNextClock;
+  if (_nextClock > masterClockMax) {
+    _nextClock -= masterClockMax;
+  }
+}
+
 cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
   if (masterClock > _nextClock) {
     return _nextClock + clockRemainder;
@@ -34,45 +41,34 @@ cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clock
   return _nextClock - masterClock;
 }
 
-bool Oscillator::Triggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
-  return TicksUntilTriggered(masterClock, clockRemainder) == 0;
+bool Oscillator::Triggered(cr_tick_t masterClock) {
+  return _nextClock == masterClock;
 }
 
 void Oscillator::ScheduleNext(cr_tick_t masterClock) {
-  _nextClock = ((masterClock / _clockPeriod) + 1) * _clockPeriod;
-  if (_nextClock > masterClockMax) {
-    _nextClock = _clockPeriod;
-  }
+  _updateNextClock(((masterClock / _clockPeriod) + 1) * _clockPeriod);
 }
 
 void Oscillator::ScheduleNow(cr_tick_t masterClock) {
-  _nextClock = masterClock + 1;
-  if (_nextClock > masterClockMax) {
-    _nextClock = 0;
-  }
+  _updateNextClock(masterClock + 1);
 }
 
-cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock, cr_tick_t clockRemainder) {
-  if (clockRemainder < _clockPeriod) {
-    _nextClock = (_clockPeriod - clockRemainder) - 1;
-  } else {
-    _nextClock += _clockPeriod;
-  }
+cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
+  _updateNextClock(masterClock + _clockPeriod);
   return _clockPeriod;
 }
 
 void Oscillator::_computeHzPulseUsScale(cr_fp_t maxHz) {
-  _hzPulseUsScale = 1.0;
   if (hz > 1.0) {
     // TODO: avoid division
-    cr_fp_t scaleFactor = hz / maxHz;
-    _hzPulseUsScale *= scaleFactor;
-    _hzPulseUsScale = 1.0 - _hzPulseUsScale;
+    _hzPulseUsScale = 1.0 - (hz / maxHz);
     if (_hzPulseUsScale <= 0) {
       _hzPulseUsScale = 0;
     } else if (_hzPulseUsScale > 1.0) {
       _hzPulseUsScale = 1.0;
     }
+  } else {
+    _hzPulseUsScale = 1.0;
   }
 }
 
