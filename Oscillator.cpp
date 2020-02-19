@@ -45,19 +45,10 @@ bool Oscillator::Triggered(cr_tick_t masterClock) {
   return _nextClock == masterClock;
 }
 
-void Oscillator::ScheduleNext(cr_tick_t masterClock) {
-  cr_tick_t newNextClock = ((masterClock / _clockPeriod) + 1) * _clockPeriod;
-  // Avoid destructive interface.
-  if (_clockPeriod & 1) {
-    newNextClock += pulseGuardTicks;
-  } else {
-    newNextClock -= pulseGuardTicks;
-  }
-  _updateNextClock(newNextClock);
-}
-
 void Oscillator::ScheduleNow(cr_tick_t masterClock) {
-  _updateNextClock(masterClock + 1);
+  // Schedule on next odd numbered clock tick to minimize destructive interference.
+  cr_tick_t newNextClock = (masterClock + 1) | 1;
+  _updateNextClock(newNextClock);
 }
 
 cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
@@ -104,10 +95,6 @@ bool Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
 
 bool Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
   if (SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset)) {
-    if (hz > 1.0) {
-      ScheduleNext(masterClock);
-    } else {
-      ScheduleNow(masterClock);
-    }
+    ScheduleNow(masterClock);
   }
 }
