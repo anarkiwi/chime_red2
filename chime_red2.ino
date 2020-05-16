@@ -37,6 +37,7 @@ DueTimer masterTimer = Timer.getAvailable();
 struct ChimeRedSettings : public midi::DefaultSettings {
   // cppcheck-suppress unusedStructMember
   static const bool Use1ByteParsing = true;
+  static const long BaudRate = 31250;
 };
 
 #ifdef CR_UI
@@ -114,6 +115,7 @@ void enableMidi() {
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.setHandlePitchBend(handlePitchBend);
+  MIDI.turnThruOff();
   // TODO: put serial port in poll only mode.
   MIDI.begin(MIDI_CHANNEL_OMNI);
 }

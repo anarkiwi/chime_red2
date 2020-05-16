@@ -96,5 +96,7 @@ bool Oscillator::SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocitySc
 bool Oscillator::SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
   if (SetFreqLazy(newHz, maxHz, newVelocityScale, newPeriodOffset)) {
     ScheduleNow(masterClock);
+    return true;
   }
+  return false;
 }
