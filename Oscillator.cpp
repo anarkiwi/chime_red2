@@ -52,7 +52,11 @@ void Oscillator::ScheduleNow(cr_tick_t masterClock) {
 }
 
 cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
-  _updateNextClock(masterClock + _clockPeriod);
+  if (_clockPeriod < maxClockPeriod) {
+    _updateNextClock(masterClock + _clockPeriod);
+  } else {
+    _updateNextClock(0);
+  }
   return _clockPeriod;
 }
 

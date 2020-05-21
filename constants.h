@@ -19,7 +19,7 @@ const uint8_t oscillatorCount = 16;
 const cr_tick_t masterClockHz = 50000;
 const cr_tick_t masterClockPeriodUs = 1e6 / masterClockHz;
 const cr_tick_t masterClockMax = masterClockHz - 1;
-
+const cr_tick_t maxClockPeriod = 8192;
 
 const cr_slowtick_t controlClockRelHz = 10;
 const cr_slowtick_t controlClockHz = masterClockHz / controlClockRelHz;
