@@ -37,6 +37,7 @@ DueTimer masterTimer = Timer.getAvailable();
 struct ChimeRedSettings : public midi::DefaultSettings {
   // cppcheck-suppress unusedStructMember
   static const bool Use1ByteParsing = true;
+  // cppcheck-suppress unusedStructMember
   static const long BaudRate = 31250;
 };
 
