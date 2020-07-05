@@ -116,9 +116,10 @@ void enableMidi() {
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.setHandlePitchBend(handlePitchBend);
-  MIDI.turnThruOff();
   // TODO: put serial port in poll only mode.
   MIDI.begin(MIDI_CHANNEL_OMNI);
+  // ThruOff must be after begin, because begin enables thru.
+  MIDI.turnThruOff();
 }
 
 // cppcheck-suppress unusedFunction
