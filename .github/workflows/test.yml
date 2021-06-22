@@ -30,5 +30,6 @@ jobs:
           PATH=~/bin:$PATH arduino-cli lib install "MIDI Library"
       - name: Compile Sketch
         run: PATH=~/bin:$PATH arduino-cli compile --fqbn ${{ matrix.fqbn }} chime_red2.ino
-      - name: cppcheck
-        run: cppcheck --enable=style,performance,information,portability,warning --language=c++ --error-exitcode=1 --xml --inline-suppr *.cpp *.h *.ino
+      # TODO: re-enable
+      #- name: cppcheck
+      #  run: cppcheck --enable=style,performance,information,portability,warning --language=c++ --error-exitcode=1 --xml --inline-suppr *.cpp *.h *.ino
