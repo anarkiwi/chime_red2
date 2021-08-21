@@ -59,12 +59,12 @@ private:
 class CRIOLcd : public CRIO {
  public:
   CRIOLcd();
-  void updateLcd();
-  bool pollPots();
-  void updateCoeff();
-  void updateLcdCoeff();
-  bool percussionEnabled();
-  bool fixedPulseEnabled();
+  void updateLcd() override;
+  bool pollPots() override;
+  void updateCoeff() override;
+  void updateLcdCoeff() override;
+  bool percussionEnabled() override;
+  bool fixedPulseEnabled() override;
  private:
   cr_fp_t _scalePot(uint8_t);
   char _lcdBuffer[lcdLines][lcdWidth+1];

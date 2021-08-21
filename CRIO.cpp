@@ -25,16 +25,7 @@ DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
 CRLiquidCrystal lcd(lcd_rs, lcd_rw, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 
 
-CRIO::CRIO() {
-  scheduled = false;
-  slipTick = false;
-  _oneShotPulseUs = 0;
-  _multiShotPulses = 0;
-  _pulseState = false;
-  pw = pulseWindowUs;
-  maxPitch = maxMidiPitch;
-  breakoutUs = minBreakoutUs;
-  _ticksSinceLastPulse = 0;
+CRIO::CRIO() : scheduled(false), slipTick(false), _oneShotPulseUs(0), _multiShotPulses(0), _pulseState(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0) {
 }
 
 CRIOLcd::CRIOLcd() {

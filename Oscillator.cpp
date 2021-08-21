@@ -12,13 +12,7 @@
 #include "types.h"
 
 
-Oscillator::Oscillator() {
-  index = 0;
-  hz = 0;
-  _periodOffset = 0;
-  _velocityScale = 0;
-  _hzPulseUsScale = 0;
-  envelope = NULL;
+Oscillator::Oscillator() : index(0), hz(0), _periodOffset(0), _velocityScale(0), _hzPulseUsScale(0), envelope(0) {
   Reset();
 }
 
