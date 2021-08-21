@@ -64,7 +64,3 @@ void Lfo::Tick() {
 cr_fp_t Lfo::Level() {
   return _table[_tablePos];
 }
-
-cr_fp_t Lfo::LevelProp(cr_fp_t prop) {
-  return _table[roundFixed(prop * maxLfoTable).getInteger()];
-}

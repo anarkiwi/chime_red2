@@ -76,9 +76,9 @@ void MidiChannel::RetuneNotes(OscillatorController *oc) {
         // TODO: add another oscillator if detune2 changed from default after note scheduled.
         oc->SetFreqLazy(oscillator, hz, midiNote->velocityScale, periodOffset);
       } else {
-        int periodOffset = int(detune2Abs) - int(DEFAULT_DETUNE);
+        int periodOffset2 = int(detune2Abs) - int(DEFAULT_DETUNE);
         cr_fp_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
-        oc->SetFreqLazy(oscillator, hz2, midiNote->velocityScale, periodOffset);
+        oc->SetFreqLazy(oscillator, hz2, midiNote->velocityScale, periodOffset2);
       }
     }
   }
