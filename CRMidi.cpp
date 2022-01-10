@@ -239,7 +239,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 31:
       // Set pitchbend range in semitones (max 12).
       // Officially we should RPNs, but Ableton among others can't send RPNs out of the box.
-      midiChannel->SetPitchBendRange(min(value, midiPitchBendRange));
+      midiChannel->SetPitchBendRange(std::min(value, midiPitchBendRange));
       break;
     case 30:
       // Same as CC 121. Officially we should only use CC 121, but Ableton among others can't

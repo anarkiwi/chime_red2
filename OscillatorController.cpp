@@ -117,4 +117,5 @@ bool OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t v
     _reschedulePending = true;
     return true;
   }
+  return false;
 }
