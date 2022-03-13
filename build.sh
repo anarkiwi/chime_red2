@@ -16,7 +16,7 @@ PATH=~/bin:$PATH arduino-cli lib install ArduinoSTL
 PATH=~/bin:$PATH arduino-cli lib install DueTimer
 PATH=~/bin:$PATH arduino-cli lib install FixedPoints
 PATH=~/bin:$PATH arduino-cli lib install "MIDI Library"
-curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.7.tar.gz | tar zxvf -
+curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.5.tar.gz | tar zxvf -
 cd cppcheck*
 mkdir build
 cd build
