@@ -1,7 +1,7 @@
 #!/bin/bash
 
 platform=$1
-fbqn=$2
+fqbn=$2
 
 sudo apt-get update
 curl -fsSL https://downloads.arduino.cc/arduino-1.8.19-linux64.tar.xz | tar Jxf -
