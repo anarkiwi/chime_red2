@@ -6,19 +6,7 @@
 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
-//#pragma GCC diagnostic error "-Wall"
-//#pragma GCC diagnostic error "-Werror"
-
-// TODO: Have to hack ~/.arduino15/packages/arduino/hardware/sam/*/platform.txt, to change -Os to -O2,
-// rather than following GCC pragma.
-// find .arduino15/packages/arduino/hardware/sam -name platform.txt -exec perl -pi -e 's/Os/O2/g' {} \;
-// #pragma GCC optimize ("-O2")
-// #pragma GCC push_options
-
-// Define when running on CR original hardware.
-// #define CR_UI 1
-
+#include "config.h"
 // cppcheck-suppress missingIncludeSystem
 #include <DueTimer.h>
 // cppcheck-suppress missingIncludeSystem

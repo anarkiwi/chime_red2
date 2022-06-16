@@ -11,6 +11,7 @@
 #ifndef CRIO_H
 #define CRIO_H
 
+#include "config.h"
 #include "types.h"
 #include "constants.h"
 
@@ -56,6 +57,7 @@ private:
   uint16_t _ticksSinceLastPulse;
 };
 
+#ifdef CR_UI
 class CRIOLcd : public CRIO {
  public:
   CRIOLcd();
@@ -81,5 +83,6 @@ class CRIOLcd : public CRIO {
   potPinType *_pwPot;
   potPinType *_maxChargePot;
 };
+#endif
 
 #endif
