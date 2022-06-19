@@ -8,8 +8,6 @@
 
 #include "config.h"
 // cppcheck-suppress missingIncludeSystem
-#include <DueTimer.h>
-// cppcheck-suppress missingIncludeSystem
 #include <MIDI.h>
 #include "types.h"
 #include "constants.h"
@@ -19,7 +17,17 @@
 #include "OscillatorController.h"
 #include "MidiChannel.h"
 
+#ifdef ARDUINO_ARCH_SAM
+// cppcheck-suppress missingIncludeSystem
+#include <DueTimer.h>
 DueTimer masterTimer = Timer.getAvailable();
+#define START_ISR(hz, isr) masterTimer.attachInterrupt(isr).setFrequency(hz).start();
+#else
+// cppcheck-suppress missingIncludeSystem
+#include <SAMDTimerInterrupt.h>
+SAMDTimer masterTimer(TIMER_TC3);
+#define START_ISR(hz, isr) masterTimer.attachInterrupt(hz, isr);
+#endif
 
 #define  MIDI_CHANNEL  MIDI_CHANNEL_OMNI
 struct ChimeRedSettings : public midi::DefaultSettings {
@@ -29,15 +37,20 @@ struct ChimeRedSettings : public midi::DefaultSettings {
   static const long BaudRate = 31250;
 };
 
+#define CR_SERIAL Serial1
+#define CR_IO CRIO
 #ifdef CR_UI
-MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial1, MIDI, ChimeRedSettings);
-CRIOLcd crio;
+#undef CR_IO
+#define CR_IO CRIOLcd
 #else
-MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial2, MIDI, ChimeRedSettings);
-CRIO crio;
+#ifdef ARDUINO_ARCH_SAM
+#undef CR_SERIAL
+#define CR_SERIAL Serial2
+#endif
 #endif
 
-
+MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, CR_SERIAL, MIDI, ChimeRedSettings);
+CR_IO crio;
 OscillatorController oc;
 CRMidi crmidi(&oc, &crio);
 
@@ -97,7 +110,7 @@ void masterISR() {
 }
 
 void enableMidi() {
-  masterTimer.attachInterrupt(masterISR).setFrequency(masterClockHz).start();
+  START_ISR(masterClockHz, masterISR);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
   MIDI.setHandleSystemReset(resetAll);

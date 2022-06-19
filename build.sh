@@ -14,9 +14,10 @@ PATH=~/bin:$PATH arduino-cli core update-index
 PATH=~/bin:$PATH arduino-cli core install $platform
 PATH=~/bin:$PATH arduino-cli lib install ArduinoSTL
 PATH=~/bin:$PATH arduino-cli lib install DueTimer
+PATH=~/bin:$PATH arduino-cli lib install SAMD_TimerInterrupt
 PATH=~/bin:$PATH arduino-cli lib install FixedPoints
 PATH=~/bin:$PATH arduino-cli lib install "MIDI Library"
-curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.5.tar.gz | tar zxvf -
+curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz | tar zxvf -
 cd cppcheck*
 mkdir build
 cd build
