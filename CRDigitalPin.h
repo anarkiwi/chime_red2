@@ -13,8 +13,26 @@
 // cppcheck-suppress missingIncludeSystem
 #include <Arduino.h>
 
-#define PINDESC(PinNumber)	g_APinDescription[PinNumber].ulPin
-#define	PINPPORT(PinNumber, PPIO)	g_APinDescription[PinNumber].pPort->PPIO
+#define PINMASK(PinNumber) digitalPinToBitMask(PinNumber)
+#define	PINPPORT(PinNumber, PPIO)	digitalPinToPort(PinNumber)->PPIO
+
+// for SparkFun SAMD boards
+#ifdef ARDUINO_ARCH_SAMD
+#define PINREAD(PinNumber) PINPPORT(PinNumber, IN.reg)
+#define PINCLEAR(PinNumber) PINPPORT(PinNumber, OUTCLR.reg)
+#define PINSET(PinNumber) PINPPORT(PinNumber, OUTSET.reg)
+#endif
+
+// for arduino due
+#ifdef ARDUINO_ARCH_SAM
+#define PINREAD(PinNumber) PINPPORT(PinNumber, PIO_PDSR)
+#define PINCLEAR(PinNumber) PINPPORT(PinNumber, PIO_CODR)
+#define PINSET(PinNumber) PINPPORT(PinNumber, PIO_SODR)
+#endif
+
+#ifndef PINREAD
+#error unknown arch
+#endif
 
 template<uint8_t PinNumber>
 class DigitalPin {
@@ -29,14 +47,14 @@ class DigitalPin {
   void low() { write(false); }
   inline __attribute__((always_inline))
   bool read() const {
-    return PINPPORT(PinNumber, PIO_PDSR) & PINDESC(PinNumber);
+    return PINREAD(PinNumber) & PINMASK(PinNumber);
   }
   inline __attribute__((always_inline))
   void write(bool value) {
     if (value) {
-      PINPPORT(PinNumber, PIO_SODR) = PINDESC(PinNumber);
+      PINSET(PinNumber) = PINMASK(PinNumber);
     } else {
-      PINPPORT(PinNumber, PIO_CODR) = PINDESC(PinNumber);
+      PINCLEAR(PinNumber) = PINMASK(PinNumber);
     }
   }
 };

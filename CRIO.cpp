@@ -79,7 +79,7 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
     return;
   }
   scheduled = true;
-  _oneShotPulseUs = pulseUs.getInteger();
+  _oneShotPulseUs = cr_pulse_t(roundFixed(pulseUs));
   if (_oneShotPulseUs >= cr_pulse_t(masterClockPeriodUs)) {
     _multiShotPulses = _oneShotPulseUs / masterClockPeriodUs;
     _oneShotPulseUs -= _multiShotPulses * masterClockPeriodUs;
@@ -90,7 +90,7 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
     if (_oneShotPulseUs > oneShotRemainderPulsePadUs) {
       ++_multiShotPulses;
       _oneShotPulseUs = 0;
-    } else if (_oneShotPulseUs < oneShotPulsePadUs) {
+    } else if (_oneShotPulseUs < oneShotPulsePadUs) { // cppcheck-suppress knownConditionTrueFalse
       _oneShotPulseUs = oneShotPulsePadUs;
     }
   }
