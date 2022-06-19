@@ -149,15 +149,13 @@ MidiNote *MidiChannel::NotesExpire(OscillatorController *oc) {
 }
 
 void MidiChannel::HandleControl() {
-  if (!_midiNotes.size()) {
-    return;
-  }
   for (MidiNoteDeque::iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     midiNote->HandleControl();
     if (midiNote->envelope.IsIdle()) {
       _idleNotes.push(midiNote);
       _midiNotes.erase(i--);
+      continue;
     }
   }
 }
