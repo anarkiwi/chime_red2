@@ -11,9 +11,9 @@
 #include "constants.h"
 
 #define FOR_ALL_OSC(osc_func) \
-  { uint8_t o = oscillatorCount; do { --o; Oscillator *oscillator = _oscillators + o; { osc_func; } } while(o); }
+  { for (Oscillator *oscillator = _oscillators; oscillator < _oscillators + oscillatorCount; ++oscillator) { osc_func; } }
 #define FOR_ALL_LFO(lfo_func) \
-  { uint8_t l = lfoCount; do { --l; Lfo *lfo = _lfos + l; { lfo_func; } } while(l); }
+  { for (Lfo *lfo = _lfos; lfo < _lfos + lfoCount; ++lfo) { lfo_func; } }
 
 
 OscillatorController::OscillatorController() {
@@ -25,7 +25,8 @@ OscillatorController::OscillatorController() {
   tremoloLfo = _lfos;
   vibratoLfo = _lfos + 1;
   configurableLfo = _lfos + 2;
-  FOR_ALL_OSC(oscillator->index = o);
+  uint8_t o = 0;
+  FOR_ALL_OSC(oscillator->index = o++);
   SetMaxHz(1.0);
   ResetAll();
 }
