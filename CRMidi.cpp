@@ -13,7 +13,7 @@
 
 #define GET_CHAN(channel) _midiChannelMap[channel]
 #define FOR_ALL_CHAN(channel_func) \
-  { uint8_t c =  midiChannelStorage; do { --c; MidiChannel *midiChannel = _midiChannels + c; { channel_func; } } while(c); }
+  { for (MidiChannel *midiChannel = _midiChannels; midiChannel < _midiChannels + midiChannelStorage; ++midiChannel) { channel_func; } }
 #define MIDI_TO_HZ(value) (midiValMap[value] * cr_fp_t(lfoMaxHz))
 
 bool CRMidi::setCC(uint8_t *value, uint8_t newValue) {

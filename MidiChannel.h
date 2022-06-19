@@ -14,7 +14,7 @@
 #include "OscillatorController.h"
 #include "MidiNote.h"
 
-typedef std::deque<MidiNote*> MidiNoteDeque;
+typedef std::vector<MidiNote*> MidiNoteDeque;
 
 class PitchBender {
  public:

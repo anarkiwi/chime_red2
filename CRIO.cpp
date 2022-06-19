@@ -96,7 +96,6 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
   }
 }
 
-
 bool CRIO::pollPots() {
   return false;
 }
