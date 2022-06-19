@@ -342,6 +342,10 @@ void AdsrEnvelope::Release() {
 
 void AdsrEnvelope::HandleControl() {
   switch (_phase) {
+    case ENV_SUSTAIN:
+        break;
+    case ENV_IDLE:
+        break;
     case ENV_ATTACK: {
         level += _attackInc;
         _ageMs += controlClockTickMs;
@@ -366,8 +370,6 @@ void AdsrEnvelope::HandleControl() {
         }
       }
       break;
-    case ENV_SUSTAIN:
-    case ENV_IDLE:
     default:
       break;
   }
