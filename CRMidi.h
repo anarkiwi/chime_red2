@@ -39,6 +39,7 @@ class CRMidi {
     MidiNote *GetFreeNote();
     void ReturnFreeNote(MidiNote *midiNote);
     void FMModulate(MidiChannel *midiChannel);
+    cr_fp_t ModulateChain(cr_fp_t p, Oscillator *audibleOscillator, MidiChannel *midiChannel);
     bool setCC(uint8_t *value, uint8_t newValue);
     MidiNote _midiNotes[oscillatorCount];
     MidiChannel _midiChannels[midiChannelStorage];

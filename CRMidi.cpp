@@ -330,22 +330,25 @@ inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, cr_fp_t level) {
   return p - (dp + (dp * level));
 }
 
+inline cr_fp_t CRMidi::ModulateChain(cr_fp_t p, Oscillator *audibleOscillator, MidiChannel *midiChannel) {
+  p *= audibleOscillator->pulseUsScale;
+  if (midiChannel->tremoloRange) {
+    p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo->Level());
+  }
+  if (!audibleOscillator->envelope->isNull) {
+    p *= audibleOscillator->envelope->level;
+  }
+  if (midiChannel->volume != maxMidiVal) {
+    p *= midiValMap[midiChannel->volume];
+  }
+  return p;
+}
+
 cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
   cr_fp_t p = _crio->pw;
   MidiChannel *midiChannel = getOscillatorChannel(audibleOscillator);
   if (!_crio->fixedPulseEnabled()) {
-    p -= _crio->breakoutUs;
-    p *= audibleOscillator->pulseUsScale;
-    if (midiChannel->tremoloRange) {
-      p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo->Level());
-    }
-    if (!audibleOscillator->envelope->isNull) {
-      p *= audibleOscillator->envelope->level;
-    }
-    if (midiChannel->volume != maxMidiVal) {
-      p *= midiValMap[midiChannel->volume];
-    }
-    p += _crio->breakoutUs;
+    p = ModulateChain(p - _crio->breakoutUs, audibleOscillator, midiChannel) + _crio->breakoutUs;
   }
   if (_percussionChannel == midiChannel) {
     _noiseModPending = false;
