@@ -17,9 +17,9 @@ PATH=~/bin:$PATH arduino-cli core update-index --additional-urls $urls
 PATH=~/bin:$PATH arduino-cli core install $platform --additional-urls $urls
 PATH=~/bin:$PATH arduino-cli lib install ArduinoSTL
 PATH=~/bin:$PATH arduino-cli lib install DueTimer
-PATH=~/bin:$PATH arduino-cli lib install SAMD_TimerInterrupt
 PATH=~/bin:$PATH arduino-cli lib install FixedPoints
 PATH=~/bin:$PATH arduino-cli lib install "MIDI Library"
+PATH=~/bin:$PATH arduino-cli lib install SAMD_TimerInterrupt
 PATH=~/bin:$PATH arduino-cli compile --fqbn $fqbn chime_red2.ino
 curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz | tar zxvf -
 cd cppcheck*
