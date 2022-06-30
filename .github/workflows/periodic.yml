@@ -13,6 +13,8 @@ jobs:
         include:
           - arduino-platform: "arduino:sam"
             fqbn: "arduino:sam:arduino_due_x"
+          - arduino-platform: "SparkFun:samd"
+            fqbn: "SparkFun:samd:samd21_dev"
     steps:
       - name: Checkout
         uses: actions/checkout@master
