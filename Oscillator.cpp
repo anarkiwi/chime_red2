@@ -29,10 +29,11 @@ inline void Oscillator::_updateNextClock(cr_tick_t newNextClock) {
 }
 
 cr_tick_t Oscillator::TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder) {
-  if (masterClock <= _nextClock) {
+  if (_nextClock >= masterClock) {
     return _nextClock - masterClock;
   }
-  return _nextClock + clockRemainder;
+  // account for 0th tick on rollover.
+  return _nextClock + (clockRemainder + 1);
 }
 
 bool Oscillator::Triggered(cr_tick_t masterClock) {

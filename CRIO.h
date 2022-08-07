@@ -19,8 +19,6 @@ const uint8_t lcdWidth = 16;
 const uint8_t lcdLines = 2;
 const uint8_t analogBits = 12;
 const cr_fp_t maxAnalogRead = cr_fp_t(1) / cr_fp_t(4095);
-const uint8_t oneShotPulsePadUs = 1;
-const uint8_t oneShotRemainderPulsePadUs = masterClockPeriodUs - oneShotPulsePadUs;
 const uint8_t potPins = 3;
 const uint8_t potSampleWindow = 16;
 
@@ -34,7 +32,6 @@ typedef struct {
 class CRIO {
  public:
   CRIO();
-  void startPulse();
   void schedulePulse(cr_fp_t pulseUs);
   virtual bool handlePulse();
   virtual void updateLcd();
@@ -44,16 +41,18 @@ class CRIO {
   virtual bool percussionEnabled();
   virtual bool fixedPulseEnabled();
   bool scheduled;
-  bool slipTick;
   cr_fp_t pw;
   uint8_t maxPitch;
   cr_fp_t breakoutUs;
 private:
+  bool handleShortPulse();
+  bool handleLongPulse();
+  bool handleNoPulse();
   void pulseOff();
   void pulseOn();
   bool _pulseState;
-  cr_pulse_t _oneShotPulseUs;
-  uint8_t _multiShotPulses;
+  bool (CRIO::*handlePulsePtr)(void);
+  cr_pulse_t _remainingPulseUs;
   uint16_t _ticksSinceLastPulse;
 };
 

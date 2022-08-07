@@ -21,7 +21,7 @@ class OscillatorController {
   void Tick();
   void RestartLFOs();
   void ResetAll();
-  bool Triggered(Oscillator **audibleOscillator);
+  bool Triggered();
   Oscillator *GetFreeOscillator();
   void ReturnFreeOscillator(Oscillator *oscillator);
   void SetMaxHz(cr_fp_t newMaxHz);
@@ -31,8 +31,9 @@ class OscillatorController {
   Lfo *tremoloLfo;
   Lfo *vibratoLfo;
   Lfo *configurableLfo;
+  Oscillator *audibleOscillator;
  private:
-  void Reschedule(Oscillator **audibleOscillator);
+  void _Reschedule();
   Lfo _lfos[lfoCount];
   Oscillator _oscillators[oscillatorCount];
   cr_fp_t _maxHz;
