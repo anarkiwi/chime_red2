@@ -44,6 +44,11 @@ bool CRIO::handlePulse() {
   return (this->*handlePulsePtr)();
 }
 
+bool CRIO::handlePulseOff() {
+  pulseOff();
+  return handleNoPulse();
+}
+
 bool CRIO::handleNoPulse() {
   ++_ticksSinceLastPulse;
   return false;
@@ -53,26 +58,24 @@ bool CRIO::handleLongPulse() {
   pulseOn();
   ++_ticksSinceLastPulse;
   _remainingPulseUs -= masterClockPeriodUs;
-  if (_remainingPulseUs <= masterClockPeriodUs) {
-    handlePulsePtr = &CRIO::handleShortPulse;
+  if (_remainingPulseUs) {
+    if (_remainingPulseUs < masterClockPeriodUs) {
+      handlePulsePtr = &CRIO::handleShortPulse;
+    }
+  } else {
+    handlePulsePtr = &CRIO::handlePulseOff;
   }
   return false;
 }
 
 bool CRIO::handleShortPulse() {
-  if (_remainingPulseUs) {
-    pulseOn();
-    delayMicroseconds(_remainingPulseUs);
-    pulseOff();
-    _remainingPulseUs = 0;
-    ++_ticksSinceLastPulse;
-    handlePulsePtr = &CRIO::handleNoPulse;
-    return true;
-  }
+  pulseOn();
+  delayMicroseconds(_remainingPulseUs);
   pulseOff();
+  _remainingPulseUs = 0;
   ++_ticksSinceLastPulse;
   handlePulsePtr = &CRIO::handleNoPulse;
-  return false;
+  return true;
 }
 
 void CRIO::schedulePulse(cr_fp_t pulseUs) {

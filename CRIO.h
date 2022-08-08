@@ -47,6 +47,7 @@ class CRIO {
 private:
   bool handleShortPulse();
   bool handleLongPulse();
+  bool handlePulseOff();
   bool handleNoPulse();
   void pulseOff();
   void pulseOn();
