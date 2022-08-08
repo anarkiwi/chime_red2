@@ -26,7 +26,7 @@
 #include <FixedPointsCommon.h>
 
 typedef uint16_t cr_pulse_t;
-typedef uint16_t cr_tick_t;
+typedef uint32_t cr_tick_t;
 typedef uint32_t cr_slowtick_t;
 typedef SFixed<16, 15> cr_fp_t;
 

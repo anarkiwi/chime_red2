@@ -53,6 +53,7 @@ MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, CR_SERIAL, MIDI, ChimeRedSettings);
 CR_IO crio;
 OscillatorController oc;
 CRMidi crmidi(&oc, &crio);
+void (*isrPtr)(void) = &nextISR;
 
 inline void handleNoteOn(byte channel, byte note, byte velocity) {
   crmidi.handleNoteOn(channel, note, velocity);
@@ -78,26 +79,22 @@ inline void resetAll() {
   crmidi.ResetAll();
 }
 
-void masterISR() {
-  bool remainderPulse = crio.handlePulse();
-  if (remainderPulse) {
-    crio.slipTick = true;
+void slipTickISR() {
+  oc.Triggered();
+  oc.Triggered();
+  isrPtr = &nextISR;
+}
+
+void nextISR() {
+  // This ISR period was used to output pulse less than the ISR period - catch up on next ISR.
+  if (crio.handlePulse()) {
+    isrPtr = &slipTickISR;
     return;
   }
-  Oscillator *audibleOscillator = NULL;
-  oc.Tick();
-  if (crio.slipTick) {
-    oc.Triggered(&audibleOscillator);
-    oc.Tick();
-    oc.Triggered(&audibleOscillator);
-    crio.slipTick = false;
-    return;
-  }
-  if (oc.Triggered(&audibleOscillator)) {
-    if (audibleOscillator) {
-      cr_fp_t p = crmidi.Modulate(audibleOscillator);
+  if (oc.Triggered()) {
+    if (oc.audibleOscillator) {
+      cr_fp_t p = crmidi.Modulate(oc.audibleOscillator);
       crio.schedulePulse(p);
-      crio.startPulse();
     }
     return;
   }
@@ -107,6 +104,10 @@ void masterISR() {
       oc.controlTriggered = false;
     }
   }
+}
+
+void masterISR() {
+  (*isrPtr)();
 }
 
 void enableMidi() {

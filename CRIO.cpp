@@ -15,7 +15,7 @@ DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
 DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
 DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
 
-CRIO::CRIO() : scheduled(false), slipTick(false), _oneShotPulseUs(0), _multiShotPulses(0), _pulseState(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0) {
+CRIO::CRIO() : scheduled(false), _remainingPulseUs(0), _pulseState(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0), handlePulsePtr(&CRIO::handleNoPulse) {
 }
 
 bool CRIO::percussionEnabled() {
@@ -41,59 +41,54 @@ inline void CRIO::pulseOff() {
 }
 
 bool CRIO::handlePulse() {
+  return (this->*handlePulsePtr)();
+}
+
+bool CRIO::handleNoPulse() {
   ++_ticksSinceLastPulse;
-  if (scheduled) {
-    return false;
-  }
-  if (_multiShotPulses == 0) {
-    if (_oneShotPulseUs) {
-      pulseOn();
-      delayMicroseconds(_oneShotPulseUs);
-      pulseOff();
-      _oneShotPulseUs = 0;
-      return true;
-    }
-    pulseOff();
-    return false;
-  }
-  pulseOn();
-  --_multiShotPulses;
   return false;
 }
 
-void CRIO::startPulse() {
-  if (scheduled) {
-    _ticksSinceLastPulse = 0;
-    scheduled = false;
+bool CRIO::handleLongPulse() {
+  pulseOn();
+  ++_ticksSinceLastPulse;
+  _remainingPulseUs -= masterClockPeriodUs;
+  if (_remainingPulseUs <= masterClockPeriodUs) {
+    handlePulsePtr = &CRIO::handleShortPulse;
   }
+  return false;
+}
+
+bool CRIO::handleShortPulse() {
+  if (_remainingPulseUs) {
+    pulseOn();
+    delayMicroseconds(_remainingPulseUs);
+    pulseOff();
+    _remainingPulseUs = 0;
+    ++_ticksSinceLastPulse;
+    handlePulsePtr = &CRIO::handleNoPulse;
+    return true;
+  }
+  pulseOff();
+  ++_ticksSinceLastPulse;
+  handlePulsePtr = &CRIO::handleNoPulse;
+  return false;
 }
 
 void CRIO::schedulePulse(cr_fp_t pulseUs) {
-  if (scheduled) {
-    return;
-  }
   if (pulseUs == 0) {
     return;
   }
   if (_ticksSinceLastPulse < pulseGuardTicks) {
     return;
   }
-  scheduled = true;
-  _oneShotPulseUs = cr_pulse_t(roundFixed(pulseUs));
-  if (_oneShotPulseUs >= cr_pulse_t(masterClockPeriodUs)) {
-    _multiShotPulses = _oneShotPulseUs / masterClockPeriodUs;
-    _oneShotPulseUs -= _multiShotPulses * masterClockPeriodUs;
+  _remainingPulseUs = cr_pulse_t(roundFixed(pulseUs));
+  if (_remainingPulseUs > masterClockPeriodUs) {
+    handlePulsePtr = &CRIO::handleLongPulse;
   } else {
-    _multiShotPulses = 0;
+    handlePulsePtr = &CRIO::handleShortPulse;
   }
-  if (_oneShotPulseUs) {
-    if (_oneShotPulseUs > oneShotRemainderPulsePadUs) {
-      ++_multiShotPulses;
-      _oneShotPulseUs = 0;
-    } else if (_oneShotPulseUs < oneShotPulsePadUs) { // cppcheck-suppress knownConditionTrueFalse
-      _oneShotPulseUs = oneShotPulsePadUs;
-    }
-  }
+  _ticksSinceLastPulse = 0;
 }
 
 bool CRIO::pollPots() {

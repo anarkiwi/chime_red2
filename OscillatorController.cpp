@@ -21,6 +21,7 @@ OscillatorController::OscillatorController() {
   _controlClock = 0;
   _lfoClock = 0;
   _reschedulePending = false;
+  audibleOscillator = NULL;
   controlTriggered = true;
   tremoloLfo = _lfos;
   vibratoLfo = _lfos + 1;
@@ -78,7 +79,7 @@ void OscillatorController::RestartLFOs() {
   FOR_ALL_LFO(lfo->Restart());
 }
 
-void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
+void OscillatorController::_Reschedule() {
   cr_tick_t minNextTriggeredTicks = masterClockMax;
   cr_tick_t clockRemainder = masterClockMax - _masterClock;
   FOR_ALL_OSC(
@@ -87,8 +88,8 @@ void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
       nextTriggeredTicks = oscillator->SetNextTick(_masterClock);
       if (oscillator->audible) {
         // Always pick the highest frequency audible oscillator.
-        if (*audibleOscillator == NULL || (oscillator->hz > (*audibleOscillator)->hz)) {
-          *audibleOscillator = oscillator;
+        if (audibleOscillator == NULL || (oscillator->hz > audibleOscillator->hz)) {
+          audibleOscillator = oscillator;
         }
       }
     }
@@ -100,10 +101,11 @@ void OscillatorController::Reschedule(Oscillator **audibleOscillator) {
   _reschedulePending = false;
 }
 
-bool OscillatorController::Triggered(Oscillator **audibleOscillator) {
-  *audibleOscillator = NULL;
+bool OscillatorController::Triggered() {
+  Tick();
+  audibleOscillator = NULL;
   if (_reschedulePending || _nextTriggeredOscillator->Triggered(_masterClock)) {
-    Reschedule(audibleOscillator);
+    _Reschedule();
     return true;
   }
   return false;

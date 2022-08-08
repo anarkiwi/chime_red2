@@ -187,6 +187,7 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       break;
     case 121: // Reset All Controllers
       midiChannel->ResetCC();
+      requireRetune = true;
       break;
     case 95:
       // Set channel detune of 2nd oscillator in cents.
