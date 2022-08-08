@@ -40,7 +40,6 @@ class CRIO {
   virtual void updateLcdCoeff();
   virtual bool percussionEnabled();
   virtual bool fixedPulseEnabled();
-  bool scheduled;
   cr_fp_t pw;
   uint8_t maxPitch;
   cr_fp_t breakoutUs;
@@ -51,7 +50,6 @@ private:
   bool handleNoPulse();
   void pulseOff();
   void pulseOn();
-  bool _pulseState;
   bool (CRIO::*handlePulsePtr)(void);
   cr_pulse_t _remainingPulseUs;
   uint16_t _ticksSinceLastPulse;

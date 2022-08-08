@@ -15,7 +15,7 @@ DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
 DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
 DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
 
-CRIO::CRIO() : scheduled(false), _remainingPulseUs(0), _pulseState(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0), handlePulsePtr(&CRIO::handleNoPulse) {
+CRIO::CRIO() : _remainingPulseUs(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0), handlePulsePtr(&CRIO::handleNoPulse) {
 }
 
 bool CRIO::percussionEnabled() {
@@ -30,14 +30,12 @@ inline void CRIO::pulseOn() {
   _speakerOutPin.high();
   _diagOutPin.high();
   _coilOutPin.high();
-  _pulseState = true;
 }
 
 inline void CRIO::pulseOff() {
   _coilOutPin.low();
   _diagOutPin.low();
   _speakerOutPin.low();
-  _pulseState = false;
 }
 
 bool CRIO::handlePulse() {
@@ -86,7 +84,7 @@ void CRIO::schedulePulse(cr_fp_t pulseUs) {
     return;
   }
   _remainingPulseUs = cr_pulse_t(roundFixed(pulseUs));
-  if (_remainingPulseUs > masterClockPeriodUs) {
+  if (_remainingPulseUs >= masterClockPeriodUs) {
     handlePulsePtr = &CRIO::handleLongPulse;
   } else {
     handlePulsePtr = &CRIO::handleShortPulse;
