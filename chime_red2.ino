@@ -85,6 +85,13 @@ void slipTickISR() {
   isrPtr = &nextISR;
 }
 
+void modulateISR() {
+  cr_fp_t p = crmidi.Modulate(oc.audibleOscillator);
+  crio.schedulePulse(p);
+  oc.Triggered();
+  isrPtr = &nextISR;
+}
+
 void nextISR() {
   // This ISR period was used to output pulse less than the ISR period - catch up on next ISR.
   if (crio.handlePulse()) {
@@ -93,8 +100,7 @@ void nextISR() {
   }
   if (oc.Triggered()) {
     if (oc.audibleOscillator) {
-      cr_fp_t p = crmidi.Modulate(oc.audibleOscillator);
-      crio.schedulePulse(p);
+      isrPtr = &modulateISR;
     }
     return;
   }
