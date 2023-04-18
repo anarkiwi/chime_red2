@@ -10,7 +10,7 @@ jobs:
           - arduino-platform: "arduino:sam"
             fqbn: "arduino:sam:arduino_due_x"
           - arduino-platform: "arduino:samd"
-            fqbn: "arduino:samd:arduino_zero_edbg"
+            fqbn: "arduino:samd:mkr1000"
     steps:
       - name: Checkout
         uses: actions/checkout@master
