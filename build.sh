@@ -4,7 +4,6 @@ set -e
 
 platform=$1
 fqbn=$2
-urls=https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
 
 sudo apt-get update && sudo apt-get install wget unzip
 wget -O/tmp/ide.zip https://downloads.arduino.cc/arduino-ide/arduino-ide_2.0.2_Linux_64bit.zip
@@ -14,8 +13,8 @@ ln -s ~/arduino*/arduino-ide ~/bin/arduino
 PATH=~/bin:$PATH curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/bin sh
 mkdir -p ~/.arduino15/packages
 PATH=~/bin:$PATH arduino-cli config init
-PATH=~/bin:$PATH arduino-cli core update-index --additional-urls $urls
-PATH=~/bin:$PATH arduino-cli core install $platform --additional-urls $urls
+PATH=~/bin:$PATH arduino-cli core update-index
+PATH=~/bin:$PATH arduino-cli core install $platform
 PATH=~/bin:$PATH arduino-cli lib install ArduinoSTL
 PATH=~/bin:$PATH arduino-cli lib install DueTimer
 PATH=~/bin:$PATH arduino-cli lib install FixedPoints
