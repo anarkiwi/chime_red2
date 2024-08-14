@@ -133,7 +133,11 @@ void enableMidi() {
 // cppcheck-suppress unusedFunction
 void setup() {
   resetAll();
+  if (!crio.midiEnabled()) {
+    crio.runPcm();
+  }
   enableMidi();
+  crio.updateLcdAll();
 }
 
 // cppcheck-suppress unusedFunction

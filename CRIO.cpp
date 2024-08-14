@@ -15,6 +15,7 @@ DigitalPin<coilOutPin> _coilOutPin(OUTPUT, LOW);
 DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
 DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
 
+
 CRIO::CRIO() : _remainingPulseUs(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0), handlePulsePtr(&CRIO::handleNoPulse) {
 }
 
@@ -24,6 +25,10 @@ bool CRIO::percussionEnabled() {
 
 bool CRIO::fixedPulseEnabled() {
   return false;
+}
+
+bool CRIO::midiEnabled() {
+  return true;
 }
 
 inline void CRIO::pulseOn() {
@@ -99,15 +104,23 @@ bool CRIO::pollPots() {
 void CRIO::updateLcd() {
 }
 
+void CRIO::updateLcdAll() {
+}
+
 void CRIO::updateCoeff() {
 }
 
 void CRIO::updateLcdCoeff() {
 }
 
+void CRIO::runPcm() {
+}
+
 #ifdef CR_UI
 DigitalPin<fixedVarPulseInPin> _fixedVarInPin(INPUT, LOW);
 DigitalPin<percussionEnableInPin> _percussionEnableInPin(INPUT, LOW);
+DigitalPin<pcmMidiInPin> _pcmMidiPin(INPUT, LOW);
+DigitalPin<pcmInPin> _pcmPin(INPUT, LOW);
 
 // TODO: Regular LCD library uses timers and isn't interruptable.
 #include "CRLiquidCrystal.h"
@@ -144,6 +157,10 @@ bool CRIOLcd::fixedPulseEnabled() {
   return _fixedVarInPin.read();
 }
 
+bool CRIOLcd::midiEnabled() {
+  return _pcmMidiPin.read();
+}
+
 inline cr_fp_t CRIOLcd::_scalePot(uint8_t pin) {
   uint16_t sample = analogRead(pin);
   sample = sample >> 2 << 2;
@@ -169,6 +186,25 @@ bool CRIOLcd::pollPots() {
     }
   }
   return false;
+}
+
+void CRIOLcd::updateLcdAll() {
+  for (byte i = 0; i < sizeof(_lcdBuffer); ++i) {
+    updateLcd();
+  }
+}
+
+void CRIOLcd::runPcm() {
+  memset(_lcdLine1, ' ', lcdWidth);
+  const char pcmDisplay[] = "PCM";
+  memcpy(_lcdLine1, pcmDisplay, sizeof(pcmDisplay));
+  updateLcdAll();
+  for (;;) {
+    pulseOff();
+    while (!_pcmPin.read()) {};
+    pulseOn();
+    while (_pcmPin.read()) {};
+  }
 }
 
 void CRIOLcd::updateLcd() {
