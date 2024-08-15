@@ -16,8 +16,10 @@
 const uint8_t coilOutPin = 11;
 const uint8_t diagOutPin = 12;
 const uint8_t speakerOutPin = 13;
+const uint8_t pcmInPin = 2;
 const uint8_t fixedVarPulseInPin = 32;
 const uint8_t percussionEnableInPin = 36;
+const uint8_t pcmMidiInPin = 44;
 
 const uint8_t lcd_d7 = 45;
 const uint8_t lcd_d6 = 43;

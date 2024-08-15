@@ -35,11 +35,16 @@ class CRIO {
   void schedulePulse(cr_fp_t pulseUs);
   virtual bool handlePulse();
   virtual void updateLcd();
+  virtual void updateLcdAll();
   virtual bool pollPots();
   virtual void updateCoeff();
   virtual void updateLcdCoeff();
   virtual bool percussionEnabled();
   virtual bool fixedPulseEnabled();
+  virtual bool midiEnabled();
+  virtual void runPcm();
+  void pulseOff();
+  void pulseOn();
   cr_fp_t pw;
   uint8_t maxPitch;
   cr_fp_t breakoutUs;
@@ -48,8 +53,6 @@ private:
   bool handleLongPulse();
   bool handlePulseOff();
   bool handleNoPulse();
-  void pulseOff();
-  void pulseOn();
   bool (CRIO::*handlePulsePtr)(void);
   cr_pulse_t _remainingPulseUs;
   uint16_t _ticksSinceLastPulse;
@@ -60,11 +63,14 @@ class CRIOLcd : public CRIO {
  public:
   CRIOLcd();
   void updateLcd() override;
+  void updateLcdAll() override;
   bool pollPots() override;
   void updateCoeff() override;
   void updateLcdCoeff() override;
   bool percussionEnabled() override;
   bool fixedPulseEnabled() override;
+  bool midiEnabled() override;
+  void runPcm() override;
  private:
   cr_fp_t _scalePot(uint8_t);
   char _lcdBuffer[lcdLines][lcdWidth+1];
