@@ -24,9 +24,9 @@ class OscillatorController {
   bool Triggered();
   Oscillator *GetFreeOscillator();
   void ReturnFreeOscillator(Oscillator *oscillator);
-  void SetMaxHz(cr_fp_t newMaxHz);
-  bool SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset);
-  bool SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset);
+  void SetMaxPitch(uint8_t maxPitch);
+  bool SetFreq(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
+  bool SetFreqLazy(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
   bool controlTriggered;
   Lfo *tremoloLfo;
   Lfo *vibratoLfo;
@@ -36,7 +36,6 @@ class OscillatorController {
   void _Reschedule();
   Lfo _lfos[lfoCount];
   Oscillator _oscillators[oscillatorCount];
-  cr_fp_t _maxHz;
   cr_tick_t _masterClock;
   cr_slowtick_t _controlClock;
   cr_slowtick_t _lfoClock;

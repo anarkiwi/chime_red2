@@ -19,24 +19,27 @@ class Oscillator {
   Oscillator();
   cr_tick_t TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder);
   bool Triggered(cr_tick_t masterClock);
-  bool SetFreq(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
-  bool SetFreqLazy(cr_fp_t newHz, cr_fp_t maxHz, cr_fp_t newVelocityScale, int periodOffset);
+  bool SetFreq(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
+  bool SetFreqLazy(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, int periodOffset);
+  void SetMaxPitch(uint8_t maxPitch);
   cr_tick_t SetNextTick(cr_tick_t masterClock);
   void ScheduleNow(cr_tick_t masterClock);
   void Reset();
-  cr_fp_t hz;
+  cr_fp_t hzInv;
   cr_fp_t pulseUsScale;
   bool audible;
   AdsrEnvelope *envelope;
   uint8_t index;
  private:
   void _updateNextClock(cr_tick_t offset);
-  void _computeHzPulseUsScale(cr_fp_t maxHz);
+  void _computeHzPulseUsScale(uint8_t newPitch);
   int _periodOffset;
   cr_fp_t _hzPulseUsScale;
   cr_fp_t _velocityScale;
   cr_tick_t _clockPeriod;
   cr_tick_t _nextClock;
+  cr_fp_t _maxHz;
+  cr_fp_t _maxHzInv;
 };
 
 #endif
