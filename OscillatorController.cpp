@@ -28,12 +28,14 @@ OscillatorController::OscillatorController() {
   configurableLfo = _lfos + 2;
   uint8_t o = 0;
   FOR_ALL_OSC(oscillator->index = o++);
-  SetMaxHz(1.0);
+  SetMaxPitch(1);
   ResetAll();
 }
 
-void OscillatorController::SetMaxHz(cr_fp_t newMaxHz) {
-  _maxHz = newMaxHz;
+void OscillatorController::SetMaxPitch(uint8_t maxPitch) {
+  FOR_ALL_OSC(
+    oscillator->SetMaxPitch(maxPitch);
+  )
 }
 
 Oscillator *OscillatorController::GetFreeOscillator() {
@@ -88,7 +90,7 @@ void OscillatorController::_Reschedule() {
       nextTriggeredTicks = oscillator->SetNextTick(_masterClock);
       if (oscillator->audible) {
         // Always pick the highest frequency audible oscillator.
-        if (audibleOscillator == NULL || (oscillator->hz > audibleOscillator->hz)) {
+        if (audibleOscillator == NULL || (oscillator->hzInv < audibleOscillator->hzInv)) {
           audibleOscillator = oscillator;
         }
       }
@@ -111,12 +113,12 @@ bool OscillatorController::Triggered() {
   return false;
 }
 
-bool OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset) {
-  return oscillator->SetFreqLazy(hz, _maxHz, velocityScale, periodOffset);
+bool OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
+  return oscillator->SetFreqLazy(hzInv, newPitch, velocityScale, periodOffset);
 }
 
-bool OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hz, cr_fp_t velocityScale, int periodOffset) {
-  if (oscillator->SetFreq(hz, _maxHz, velocityScale, _masterClock, periodOffset)) {
+bool OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
+  if (oscillator->SetFreq(hzInv, newPitch, velocityScale, _masterClock, periodOffset)) {
     _reschedulePending = true;
     return true;
   }

@@ -81,7 +81,7 @@ inline int16_t randomBend() {
 void CRMidi::updateCoeff() {
   _crio->updateCoeff();
   _crio->updateLcdCoeff();
-  _oc->SetMaxHz(pitchToHz[_crio->maxPitch]);
+  _oc->SetMaxPitch(_crio->maxPitch);
   FOR_ALL_CHAN(midiChannel->SetMaxPitch(_crio->maxPitch));
 }
 
@@ -327,7 +327,7 @@ void CRMidi::FMModulate(MidiChannel *midiChannel) {
 }
 
 inline cr_fp_t amModulate(cr_fp_t p, cr_fp_t depth, cr_fp_t level) {
-  cr_fp_t dp = (p / cr_fp_t(2)) * depth;
+  cr_fp_t dp = p * cr_fp_t(0.5) * depth;
   return p - (dp + (dp * level));
 }
 
