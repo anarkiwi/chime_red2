@@ -60,7 +60,7 @@ class PitchBender {
       } else if (windowPitch > _maxPitch) {
         windowPitch = _maxPitch;
       }
-      cr_fp_t window = _pitchBendScale * (pitchToHz[(uint8_t)windowPitch] - hz);
+      cr_fp_t window = _pitchBendScale * (pitchToHzInv[(uint8_t)windowPitch] - hz);
       hz += window;
     }
     return hz;

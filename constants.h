@@ -10,7 +10,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-const cr_fp_t minBreakoutUs = 8;
+const cr_fp_t minBreakoutUs = 16;
 const cr_fp_t maxBreakoutUs = 48;
 const cr_fp_t pulseWindowUs = 120;
 const uint8_t pulseGuardTicks = 1;
@@ -38,7 +38,7 @@ const uint8_t maxMidiChannel = 8;
 const uint8_t midiChannelStorage = maxMidiChannel + 1; // +1 reserved for ch 10 automatically
 const cr_fp_t maxMidiPitchBend = 8192;
 const uint8_t absMaxMidiPitch = 127;
-const uint8_t maxMidiPitch = 84;
+const uint8_t maxMidiPitch = 96;
 const uint8_t maxMidiVal = 127;
 const uint8_t midiPitchBendRange = 12;
 
