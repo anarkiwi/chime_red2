@@ -13,6 +13,17 @@
 // cppcheck-suppress missingIncludeSystem
 #include <Arduino.h>
 
+#ifdef CR_HOST_TEST
+// Host unit tests drive no real GPIO; the recording DigitalPin (which lets the
+// end-to-end test observe the pulse output) lives on the test-only include path
+// at test/host/stubs/CRHostDigitalPin.h. Keeping it out of this header means the
+// device build -- and the repo-root cppcheck in build.sh, which has no -I for
+// the test stubs -- only ever see the one real DigitalPin below, so there is no
+// spurious one-definition-rule violation between the two.
+// cppcheck-suppress missingInclude
+#include "CRHostDigitalPin.h"
+#else
+
 #define PINMASK(PinNumber) digitalPinToBitMask(PinNumber)
 #define	PINPPORT(PinNumber, PPIO)	digitalPinToPort(PinNumber)->PPIO
 
@@ -58,4 +69,5 @@ class DigitalPin {
     }
   }
 };
+#endif  // CR_HOST_TEST
 #endif  // DigitalPin_h

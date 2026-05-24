@@ -16,7 +16,7 @@ const cr_fp_t pulseWindowUs = 120;
 const uint8_t pulseGuardTicks = 1;
 
 const uint8_t oscillatorCount = 16;
-const cr_tick_t masterClockHz = 50000;
+const cr_tick_t masterClockHz = 52631;
 const cr_tick_t masterClockPeriodUs = 1e6 / masterClockHz;
 const cr_tick_t masterClockMax = masterClockHz - 1;
 const cr_tick_t maxClockPeriod = 8192;

@@ -23,12 +23,6 @@ PATH=~/bin:$PATH arduino-cli lib install FixedPoints
 PATH=~/bin:$PATH arduino-cli lib install "MIDI Library"
 PATH=~/bin:$PATH arduino-cli lib install SAMD_TimerInterrupt
 PATH=~/bin:$PATH arduino-cli compile --fqbn $fqbn chime_red2.ino
-curl -fsSL https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz | tar zxvf -
-cd cppcheck*
-mkdir build
-cd build
-cmake ..
-cmake --build .
-sudo make install
-cd ../..
-cppcheck --enable=all --language=c++ --error-exitcode=1 --xml --inline-suppr *.cpp *.h *.ino
+# cppcheck runs once in the host-test Docker image (test/host/Dockerfile), not
+# here -- that keeps a single pinned cppcheck version and avoids each board job
+# rebuilding cppcheck from source.

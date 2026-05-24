@@ -12,7 +12,7 @@
 #include "types.h"
 
 
-Oscillator::Oscillator() : index(0), hzInv(0), _periodOffset(0), _velocityScale(0), _hzPulseUsScale(0), envelope(0) {
+Oscillator::Oscillator() : hzInv(0), envelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0) {
   Reset();
 }
 
@@ -57,7 +57,9 @@ cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
 
 void Oscillator::SetMaxPitch(uint8_t maxPitch) {
   _maxHz = pitchToHz[maxPitch];
-  _maxHzInv = pitchToHzInv[maxPitch];
+  // _maxHzInv only scales pulse width (_computeHzPulseUsScale), which does not
+  // need the extra precision, so keep it as cr_fp_t.
+  _maxHzInv = static_cast<cr_fp_t>(pitchToHzInv[maxPitch]);
 }
 
 void Oscillator::_computeHzPulseUsScale(uint8_t newPitch) {
@@ -74,15 +76,25 @@ void Oscillator::_computeHzPulseUsScale(uint8_t newPitch) {
   }
 }
 
-bool Oscillator::SetFreqLazy(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, int newPeriodOffset) {
+bool Oscillator::SetFreqLazy(cr_hzinv_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, int newPeriodOffset) {
   bool hzChange = hzInv != newHzInv || _periodOffset != newPeriodOffset;
   bool velocityChange = hzChange || (_velocityScale != newVelocityScale);
 
   if (hzChange) {
     hzInv = newHzInv;
     _periodOffset = newPeriodOffset;
-    cr_fp_t clockPeriod_fp = roundFixed(cr_fp_t(masterClockHz) * hzInv);
-    _clockPeriod = clockPeriod_fp.getInteger();
+    // A plain note (default detune, no pitch bend) arrives as exactly the table
+    // entry, so use its precomputed optimal period and skip the lossy
+    // masterClockHz * (1/f) fixed-point multiply (1/f truncated to 15 fractional
+    // bits costs up to ~100 cents near 2 kHz). Detuned/bent notes and arbitrary
+    // frequencies (hzInv != table) fall back to the multiply as before. (Within
+    // the playable range each note has a distinct hzInv; above ~note 98 adjacent
+    // semitones share an hzInv, so this dispatch would need to key on pitch too.)
+    if (newPitch <= absMaxMidiPitch && newHzInv == pitchToHzInv[newPitch]) {
+      _clockPeriod = pitchToPeriod[newPitch];
+    } else {
+      _clockPeriod = hzInvToTicks(masterClockHz, hzInv);
+    }
     if (_clockPeriod + _periodOffset > 0) {
       _clockPeriod = _clockPeriod + _periodOffset;
     } else {
@@ -97,7 +109,7 @@ bool Oscillator::SetFreqLazy(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelo
   return hzChange || velocityChange;
 }
 
-bool Oscillator::SetFreq(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
+bool Oscillator::SetFreq(cr_hzinv_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, cr_tick_t masterClock, int newPeriodOffset) {
   if (SetFreqLazy(newHzInv, newPitch, newVelocityScale, newPeriodOffset)) {
     ScheduleNow(masterClock);
     return true;

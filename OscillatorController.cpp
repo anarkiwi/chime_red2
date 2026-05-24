@@ -113,11 +113,11 @@ bool OscillatorController::Triggered() {
   return false;
 }
 
-bool OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
+bool OscillatorController::SetFreqLazy(Oscillator *oscillator, cr_hzinv_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
   return oscillator->SetFreqLazy(hzInv, newPitch, velocityScale, periodOffset);
 }
 
-bool OscillatorController::SetFreq(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
+bool OscillatorController::SetFreq(Oscillator *oscillator, cr_hzinv_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset) {
   if (oscillator->SetFreq(hzInv, newPitch, velocityScale, _masterClock, periodOffset)) {
     _reschedulePending = true;
     return true;

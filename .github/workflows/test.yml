@@ -17,3 +17,18 @@ jobs:
       - name: Test
         run: |
           ./build.sh ${{ matrix.arduino-platform }} ${{ matrix.fqbn }}
+  host-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Host unit tests + coverage (Docker)
+        run: |
+          ./test/host/run_tests.sh
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-test-coverage
+          path: test/host/coverage/coverage.xml
+          if-no-files-found: warn

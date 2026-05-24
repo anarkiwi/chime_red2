@@ -52,7 +52,7 @@ class PitchBender {
     }
     return true;
   }
-  cr_fp_t BendHz(MidiNote *midiNote, cr_fp_t hz) {
+  cr_hzinv_t BendHz(MidiNote *midiNote, cr_hzinv_t hzInv) {
     if (_pitchBendScale > 0) {
       int16_t windowPitch = midiNote->pitch + _pitchBendDiff;
       if (windowPitch < 0) {
@@ -60,10 +60,18 @@ class PitchBender {
       } else if (windowPitch > _maxPitch) {
         windowPitch = _maxPitch;
       }
-      cr_fp_t window = _pitchBendScale * (pitchToHzInv[(uint8_t)windowPitch] - hz);
-      hz += window;
+      // Interpolate toward the bend target in inverse-Hz space. This previously
+      // used pitchToHz (forward Hz), but the bend value became inverse-Hz in the
+      // avoid-division change, so forwardHz - invHz was dimensionally wrong and
+      // sent any bent note (and the ch10 random-bend noise effect) to garbage
+      // frequencies. Inverse-Hz interpolation is consistent and division-free.
+      // (origin/main's "Fix pitchbend" made the same pitchToHz->pitchToHzInv
+      // correction but kept cr_fp_t; this branch supersedes it with cr_hzinv_t's
+      // 30-bit inverse-Hz precision.)
+      cr_hzinv_t window = static_cast<cr_hzinv_t>(_pitchBendScale) * (pitchToHzInv[(uint8_t)windowPitch] - hzInv);
+      hzInv += window;
     }
-    return hz;
+    return hzInv;
   }
  private:
   int16_t _bend;
@@ -82,7 +90,7 @@ class MidiChannel {
     void SetMaxPitch(uint8_t maxPitch);
     MidiNote *LookupNote(uint8_t note);
     void SetBend(int newBend, OscillatorController *oc);
-    cr_fp_t BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff);
+    cr_hzinv_t BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff);
     void NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc);
     void ReleaseNote(uint8_t note);
     bool ResetNote(uint8_t note);
@@ -103,7 +111,7 @@ class MidiChannel {
     uint8_t volume;
     bool lfoRestart;
    private:
-    void _AddOscillatorToNote(cr_fp_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
+    void _AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];

@@ -16,7 +16,7 @@ DigitalPin<diagOutPin> _diagOutPin(OUTPUT, LOW);
 DigitalPin<speakerOutPin> _speakerOutPin(OUTPUT, LOW);
 
 
-CRIO::CRIO() : _remainingPulseUs(0), pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), _ticksSinceLastPulse(0), handlePulsePtr(&CRIO::handleNoPulse) {
+CRIO::CRIO() : pw(pulseWindowUs), maxPitch(maxMidiPitch), breakoutUs(minBreakoutUs), handlePulsePtr(&CRIO::handleNoPulse), _remainingPulseUs(0), _ticksSinceLastPulse(0) {
 }
 
 bool CRIO::percussionEnabled() {

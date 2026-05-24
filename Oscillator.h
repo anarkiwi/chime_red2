@@ -19,13 +19,13 @@ class Oscillator {
   Oscillator();
   cr_tick_t TicksUntilTriggered(cr_tick_t masterClock, cr_tick_t clockRemainder);
   bool Triggered(cr_tick_t masterClock);
-  bool SetFreq(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
-  bool SetFreqLazy(cr_fp_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, int periodOffset);
+  bool SetFreq(cr_hzinv_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, cr_tick_t masterClock, int periodOffset);
+  bool SetFreqLazy(cr_hzinv_t newHzInv, uint8_t newPitch, cr_fp_t newVelocityScale, int periodOffset);
   void SetMaxPitch(uint8_t maxPitch);
   cr_tick_t SetNextTick(cr_tick_t masterClock);
   void ScheduleNow(cr_tick_t masterClock);
   void Reset();
-  cr_fp_t hzInv;
+  cr_hzinv_t hzInv;
   cr_fp_t pulseUsScale;
   bool audible;
   AdsrEnvelope *envelope;

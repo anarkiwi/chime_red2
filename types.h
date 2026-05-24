@@ -30,4 +30,24 @@ typedef uint32_t cr_tick_t;
 typedef uint32_t cr_slowtick_t;
 typedef SFixed<16, 15> cr_fp_t;
 
+// Inverse frequency (1/Hz). Always <= ~1.06 (note 0 is 1 Hz, plus detune
+// headroom), so the 16 integer bits cr_fp_t spends are wasted here -- they buy
+// nothing and cost precision. cr_hzinv_t reallocates them: same 32-bit storage
+// as cr_fp_t, but 30 fractional bits instead of 15. That drops the 1/f
+// truncation error from ~6% (≈100 cents) near 2 kHz to ~2e-6 (<0.01 cents), so
+// detuned / pitch-bent / arbitrary frequencies hit the single-clock floor like
+// plain notes do. (Plain notes still use the exact pitchToPeriod[] table.)
+typedef SFixed<1, 30> cr_hzinv_t;
+
+// round(clockHz * hzInv) -- the master-clock period for an inverse frequency --
+// without reintroducing a runtime divide. clockHz needs ~16 integer bits, so the
+// product does not fit a 32-bit fixed-point type; compute it in 64-bit integer
+// from hzInv's raw Q30 value and round half up. hzInv is always >= 0 here.
+inline cr_tick_t hzInvToTicks(cr_tick_t clockHz, cr_hzinv_t hzInv) {
+  const int64_t scaled =
+      static_cast<int64_t>(clockHz) * static_cast<int64_t>(hzInv.getInternal());
+  const int64_t half = static_cast<int64_t>(1) << (cr_hzinv_t::FractionSize - 1);
+  return static_cast<cr_tick_t>((scaled + half) >> cr_hzinv_t::FractionSize);
+}
+
 #endif
