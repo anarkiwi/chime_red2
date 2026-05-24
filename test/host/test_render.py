@@ -19,8 +19,9 @@ import tempfile
 import wave
 import os
 
+from smf_write import PPQ, mtrk, write_smf
+
 CR_RENDER = os.environ.get("CR_RENDER", "cr-render")
-PPQ = 480
 failures = 0
 
 
@@ -28,32 +29,6 @@ def fail(msg):
     global failures
     failures += 1
     print("  FAIL: " + msg)
-
-
-def vlq(n):
-    out = bytearray([n & 0x7F])
-    n >>= 7
-    while n:
-        out.append((n & 0x7F) | 0x80)
-        n >>= 7
-    return bytes(reversed(out))
-
-
-def mtrk(events):  # events: list of (delta_ticks, event_bytes)
-    data = bytearray()
-    for d, ev in events:
-        data += vlq(d) + ev
-    data += vlq(0) + b"\xff\x2f\x00"  # end of track
-    return b"MTrk" + struct.pack(">I", len(data)) + bytes(data)
-
-
-def write_smf(path, events, fmt=0, ntrks=1, tracks=None):
-    if tracks is None:
-        tracks = [mtrk(events)]
-    body = b"".join(tracks)
-    mid = b"MThd" + struct.pack(">IHHH", 6, fmt, ntrks, PPQ) + body
-    with open(path, "wb") as f:
-        f.write(mid)
 
 
 def render(mid, wav, *opts):

@@ -25,6 +25,13 @@ void MidiChannel::ResetCC() {
   release = 0;
   tremoloRange = 0;
   coarseModulation = 0;
+  fmRatio = 0;
+  fmRatioFine = 0;
+  fmIndex = 0;
+  modAttack = 0;
+  modDecay = 0;
+  modSustain = maxMidiVal;  // default mod envelope is null => constant index
+  modRelease = 0;
   lfoRestart = true;
   detune = DEFAULT_DETUNE;
   detune2 = DEFAULT_DETUNE;
@@ -82,6 +89,7 @@ void MidiChannel::RetuneNotes(OscillatorController *oc) {
         oc->SetFreqLazy(oscillator, hz2, midiNote->pitch, midiNote->velocityScale, periodOffset2);
       }
     }
+    _StampFM(midiNote);
   }
 }
 
@@ -104,9 +112,24 @@ void MidiChannel::_AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, Oscill
   midiNote->oscillators.push_back(oscillator);
 }
 
+void MidiChannel::_StampFM(MidiNote *midiNote) {
+  // Translate the channel's FM CCs to per-cycle modulation state and stamp it on
+  // every oscillator of the note, pointing each at this note's modulation-index
+  // envelope. Control-rate (note on / retune); idempotent so re-stamping a held
+  // note on a CC or pitch-bend change is safe.
+  const cr_fp_t depth = _FmDepth();
+  const uint16_t step = _FmPhaseStep();
+  for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
+    Oscillator *oscillator = *o;
+    oscillator->modEnvelope = &(midiNote->modEnvelope);
+    oscillator->SetFM(depth, step);
+  }
+}
+
 void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc) {
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
+  midiNote->modEnvelope.Reset(modAttack, modDecay, modSustain, modRelease);
   midiNote->velocityScale = midiValMap[velocity];
   _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune]), midiNote, oc, int(detuneAbs) - int(DEFAULT_DETUNE));
   if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
@@ -125,6 +148,7 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, Osc
     oscillator->envelope = &(midiNote->envelope);
     oscillator->SetNoiseRange(noisePMin, noiseSpan);
   }
+  _StampFM(midiNote);
   _midiNotes.push_back(midiNote);
   _noteMap[note] = midiNote;
 }
@@ -133,6 +157,7 @@ void MidiChannel::ReleaseNote(uint8_t note) {
   MidiNote *midiNote = LookupNote(note);
   if (midiNote) {
     midiNote->envelope.Release();
+    midiNote->modEnvelope.Release();
   }
 }
 
@@ -141,6 +166,7 @@ bool MidiChannel::ResetNote(uint8_t note) {
   if (midiNote) {
     midiNote->pitch = note;
     midiNote->envelope.Reset(attack, decay, sustain, release);
+    midiNote->modEnvelope.Reset(modAttack, modDecay, modSustain, modRelease);
     return true;
   }
   return false;

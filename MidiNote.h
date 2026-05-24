@@ -25,6 +25,10 @@ class MidiNote {
   cr_fp_t ageMs;
   OscillatorDeque oscillators;
   AdsrEnvelope envelope;
+  // Independent envelope shaping the FM modulation index over the note's life
+  // (the bell loses brightness faster than loudness). Advances with `envelope`
+  // but never governs voice lifetime -- only the amplitude envelope does that.
+  AdsrEnvelope modEnvelope;
   cr_fp_t velocityScale;
 };
 

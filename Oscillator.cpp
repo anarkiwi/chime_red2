@@ -10,9 +10,10 @@
 #include "Oscillator.h"
 #include "constants.h"
 #include "types.h"
+#include "wavetable.h"
 
 
-Oscillator::Oscillator() : hzInv(0), envelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0), _noisePMin(0), _noiseSpan(0) {
+Oscillator::Oscillator() : hzInv(0), envelope(0), modEnvelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0), _noisePMin(0), _noiseSpan(0), _fmDepth(0), _fmPhaseStep(0), _fmPhase(0) {
   Reset();
 }
 
@@ -20,6 +21,11 @@ void Oscillator::Reset() {
   audible = false;
   _noisePMin = 0;
   _noiseSpan = 0;
+  // Drop any FM left on an oscillator recycled from the free pool; note on
+  // re-stamps it via SetFM, so a default (non-FM) voice always has it cleared.
+  _fmDepth = 0;
+  _fmPhaseStep = 0;
+  _fmPhase = 0;
   SetFreq(1, 1, 0, 2, 0);
 }
 
@@ -52,12 +58,35 @@ cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
 #ifdef CR_HOST_TEST
   ++testTriggerCount;  // scheduler-cadence characterization test census
 #endif
-  if (_clockPeriod < maxClockPeriod) {
-    _updateNextClock(masterClock + _clockPeriod);
+  cr_tick_t period = _clockPeriod;
+  // FM carrier: bend the next period by (1 + depth*sin), with the modulator
+  // walking the sine table once per carrier cycle. Gated on an in-range base
+  // period so cr_fp_t(period) cannot overflow SFixed<16,15>, and so a default
+  // voice (phaseStep == 0) keeps the exact original behaviour -- the frequency
+  // tests and scheduler-cadence guard exercise that path unchanged. Period-domain
+  // (division-free); depth stays < 1 (fmMaxDepth) so the period can't reach 0.
+  // _fmPhaseStep is pre-reduced into [0, maxLfoTable] at config time
+  // (MidiChannel::_FmPhaseStep), so the table wrap is a single subtract -- no
+  // parameter-dependent loop in the ISR.
+  if (_fmPhaseStep && period < maxClockPeriod) {
+    _fmPhase += _fmPhaseStep;
+    if (_fmPhase > maxLfoTable) {
+      _fmPhase -= (maxLfoTable + 1);
+    }
+    cr_fp_t depth = _fmDepth;
+    if (modEnvelope && !modEnvelope->isNull) {
+      depth *= modEnvelope->level;
+    }
+    cr_fp_t delta = cr_fp_t(static_cast<int>(period)) * depth * SineTable[_fmPhase];
+    int modPeriod = static_cast<int>(period) + roundFixed(delta).getInteger();
+    period = modPeriod > 0 ? static_cast<cr_tick_t>(modPeriod) : 1;
+  }
+  if (period < maxClockPeriod) {
+    _updateNextClock(masterClock + period);
   } else {
     _updateNextClock(0);
   }
-  return _clockPeriod;
+  return period;
 }
 
 void Oscillator::SetMaxPitch(uint8_t maxPitch) {

@@ -30,9 +30,11 @@ void MidiNote::Reset() {
   velocityScale = 0;
   oscillators.clear();
   envelope.Reset(0, 0, maxMidiVal, 0);
+  modEnvelope.Reset(0, 0, maxMidiVal, 0);
 }
 
 void MidiNote::HandleControl() {
   ageMs += controlClockTickMsFp;
   envelope.HandleControl();
+  modEnvelope.HandleControl();
 }

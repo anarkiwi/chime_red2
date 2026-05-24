@@ -36,10 +36,29 @@ class Oscillator {
     cr_tick_t period = _noisePMin + offset;
     _clockPeriod = period ? period : 1;
   }
+  // Per-cycle frequency modulation (Chowning-style FM, the bell prototype). When
+  // phaseStep is non-zero this oscillator becomes an FM carrier: each carrier
+  // cycle (SetNextTick) it walks a modulator phase by phaseStep steps through the
+  // shared 1000-entry SineTable and bends the *next* period by (1 + depth * sin).
+  // depth is further scaled by the amplitude envelope at run time, so brightness
+  // decays with the note like a struck bell. phaseStep = round(ratio * 1000)
+  // encodes the carrier:modulator ratio (the classic bell is ~1.4). Like
+  // SetNoiseRange the write is lazy -- it takes effect at the next SetNextTick
+  // with no reschedule. See Oscillator.cpp for the moderate-index / once-per-cycle
+  // aliasing caveats inherent to a hard-switched pulse engine.
+  void SetFM(cr_fp_t depth, uint16_t phaseStep) {
+    _fmDepth = depth;
+    _fmPhaseStep = phaseStep;
+  }
   cr_hzinv_t hzInv;
   cr_fp_t pulseUsScale;
   bool audible;
   AdsrEnvelope *envelope;
+  // FM modulation-index envelope (separate from the amplitude `envelope`): scales
+  // the FM depth per carrier cycle so brightness can decay independently of
+  // loudness (the struck-bell gesture). Set at note on; only read when FM is
+  // active. A null/default mod envelope sits at level 1.0 => constant index.
+  AdsrEnvelope *modEnvelope;
   uint8_t index;
 #ifdef CR_HOST_TEST
   // Read-only period introspection for host MIDI tests (test/host/test_midi.cpp).
@@ -68,6 +87,9 @@ class Oscillator {
   cr_fp_t _maxHzInv;
   cr_tick_t _noisePMin;
   cr_tick_t _noiseSpan;
+  cr_fp_t _fmDepth;
+  uint16_t _fmPhaseStep;
+  uint16_t _fmPhase;
 };
 
 #endif

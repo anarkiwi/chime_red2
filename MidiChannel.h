@@ -127,12 +127,42 @@ class MidiChannel {
     uint8_t tremoloRange;
     uint8_t coarseModulation;
     uint8_t volume;
+    // FM (applied to a note's oscillators at note on, and re-stamped on held
+    // notes via RetuneNotes). The carrier:modulator ratio is fmRatio/10 +
+    // fmRatioFine/100 (0 = FM off, 14 = 1.4 the classic bell; the fine term gives
+    // sub-tenth ratios, e.g. 1.08 for a tightly-clustered "fat" bass). fmIndex is
+    // the peak modulation depth (0..127 -> 0..fmMaxDepth). modAttack/modDecay/
+    // modSustain/modRelease are the modulation-index envelope (the AdsrEnvelope CC
+    // curve); default (0/0/127/0) = constant index, set a decay + zero sustain for
+    // a bell's fading brightness.
+    uint8_t fmRatio;
+    uint8_t fmRatioFine;
+    uint8_t fmIndex;
+    uint8_t modAttack;
+    uint8_t modDecay;
+    uint8_t modSustain;
+    uint8_t modRelease;
     bool lfoRestart;
     // Structural (set once for the percussion channel), not a resettable CC:
     // when true, note on stamps each voice's oscillator with a noise period
     // window so Modulate() drives it as pitched noise instead of vibrato.
     bool noiseModulated;
    private:
+    // FM CC -> engine conversions, done at control rate (note on / retune), never
+    // per audio cycle. The phase step is round(ratio * tableSize) reduced into
+    // [0, maxLfoTable] so Oscillator::SetNextTick's table wrap is one subtract.
+    // ratio = fmRatio/10 + fmRatioFine/100, tableSize = maxLfoTable + 1 (1000), so
+    // the tenth term steps by tableSize/10 and the hundredth term by tableSize/100
+    // -- the latter lands the modulator off the coarse 0.1*f_c grid (and off the
+    // degenerate integer / X.5 ratios). Step 0 means FM off.
+    uint16_t _FmPhaseStep() const {
+      const uint16_t tableSize = maxLfoTable + 1;
+      return uint16_t((uint16_t(fmRatio) * (tableSize / 10) +
+                       uint16_t(fmRatioFine) * (tableSize / 100)) %
+                      tableSize);
+    }
+    cr_fp_t _FmDepth() const { return midiValMap[fmIndex] * fmMaxDepth; }
+    void _StampFM(MidiNote *midiNote);
     void _AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
