@@ -16,7 +16,7 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 
 ## Best practices
 
-* If your DAW or controller can send program changes, then send a program change (the number does not matter) to reset all CC values and pitchbend to defaults.
+* If your DAW or controller can send program changes, then send a program change to reset all CC values and pitchbend to defaults. (Most program numbers only reset; numbers 14, 38, 39 and 40 reset and then load a built-in FM preset - see FM synthesis below.)
 * Sending MIDI CC 30 (the value does not matter) will do the same reset as a program change,
 * If you don't reset CC values and pitchbends via one of the above methods, then when automating use of the MIDI CC messages specified below or pitchbends, ensure that you explicitly automate starting, and returning the CC value to its default (ie. in Ableton, the automation line for the CC value should be set back to default at the end of a MIDI clip). This ensures that the CC value will always be consistent whenever the DAW or CR2 are restarted.
 * Setting ADSR envelope values should be done before sending a MIDI note. Sending ADSR values while a note is playing will have no effect.
@@ -29,24 +29,78 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 | --- | --- | --- | ---
 |123|0|All notes off
 |121|0|Reset all CC values on this channel to defaults
+|105|0|FM modulation-index envelope release|0-127 is 0 to 4s. Shapes the FM amount over the note, independently of the volume ADSR. Applies on the next note on. See FM synthesis below.
+|104|127|FM modulation-index envelope sustain|127 (default) holds a constant FM amount; lower it (with a decay) so brightness fades over the note like a struck bell. Applies on the next note on.
+|103|0|FM modulation-index envelope decay|0-127 is 0 to 4s. Applies on the next note on.
+|102|0|FM modulation-index envelope attack|0-127 is 0 to 4s. Applies on the next note on.
 |95|64|2nd oscillator detune in cents|If not 64, assign a second oscillator to each note, and detune it n cents from the note's fundamental frequency (e.g. 63 is -1 cents, 65 is +1 cents).
 |94|64|Oscillator detune in cents|If not 64, detune note oscillator n cents from the note's fundamental frequency (e.g. 63 is -1 cents, 65 is +1 cents).
 |92|0|Tremolo LFO range|Set the level this channel's notes will be affected by the tremolo LFO (0 is no tremolo).
 |90|64|2nd oscillator fine detune in 20us periods|If not 64, assign a second oscillator to each note, and fine detune it by n 20 microsecond periods from the note's fundamental frequency (e.g. 63 is -1 periods 65, is +1 periods).
 |89|64|Oscillator fine detune in 20us periods|If not 64, detune oscillator n 20 microsecond periods from the note's fundamental frequency (e.g. 63 is -1 periods 65, is +1 periods).
-|87|0|LFO restart on note on|If 0, restart LFOs on each note on. If 1, LFOs free run.
+|87|on|LFO restart on note on|>0 (the default) restarts the LFOs on each note on; 0 lets them free-run.
 |86|0|Vibrato LFO shape| 0 sine, 1 downward saw, 2 upward saw.
 |85|0|Tremolo LFO shape| 0 sine, 1 downward saw, 2 upward saw.
 |76|0|Vibrato LFO frequency| 0-127 is 0 to 10Hz
 |75|0|ADSR decay time| 0-127 is 0 to 4s, as an exponential curve.
-|73|0|ADSR attack time| 0-127 is 0 to 4s, as an expotential curve.
-|72|0|ADSR release time| 0-127 is 0 to 4s, as an expotential curve.
+|73|0|ADSR attack time| 0-127 is 0 to 4s, as an exponential curve.
+|72|0|ADSR release time| 0-127 is 0 to 4s, as an exponential curve.
 |31|12|Pitchbend range in semitones| Normally set by an RPN, but DAWs such as Ableton do not natively support sending RPNs.
 |30|0|Reset all CC values (same as 121 - some DAWs such as Ableton do not allow manually sending CC 121).
 |24|127|ADSR sustain level|
 |22|0|Tremolo LFO frequency| 0-127 is 0 to 10Hz
+|21|0|FM modulation index|FM amount / brightness (0 is no FM). Takes effect immediately, including on held notes. See FM synthesis below.
+|20|0|FM carrier:modulator ratio, in tenths|0 turns FM off. 14 = ratio 1.4 (a classic bell). Use *non-integer* ratios: integer ratios (10, 20, ...) produce no modulation. Combined with CC19, ratio = CC20/10 + CC19/100. Takes effect immediately, including on held notes.
+|19|0|FM ratio fine adjust, in hundredths|Added to CC20 for sub-tenth ratios (e.g. CC20=10, CC19=8 gives ratio 1.08). Takes effect immediately, including on held notes.
 |7|127|Volume of all notes on this channel
 |1|0|Vibrato LFO range|Set the level this channel's notes will be affected by the vibrato LFO (0 is no vibrato).
+
+
+## FM synthesis
+
+CR2 can frequency-modulate a note to add inharmonic overtones - metallic, bell and
+chime timbres. Because a CR2 note's pitch is its coil pulse rate, this is *inharmonic*
+FM (the modulation shifts the pulse timing cycle to cycle): it is great for bells,
+chimes and gritty "coil-FM" basses, but it is not clean harmonic (DX-style) FM, and
+**integer carrier:modulator ratios produce no modulation** - the modulation cancels
+out each cycle. Use non-integer ratios.
+
+FM is per-channel and works alongside normal polyphony (it adds no extra
+oscillators). It is driven by:
+
+* **Ratio** (CC20 in tenths, CC19 in hundredths): the modulator frequency relative
+  to the played note. Effective ratio = CC20/10 + CC19/100. CC20 of 0 turns FM off.
+  14 (ratio 1.4) is the classic Chowning bell. Around the lower end, 1.1-1.4 give
+  bell/clang colours; values near an integer (e.g. 1.08) cluster sidebands close to
+  the fundamental for a thicker tone.
+* **Index** (CC21): how much modulation - i.e. brightness / how many sidebands.
+* **Modulation-index envelope** (CC102 attack, CC103 decay, CC104 sustain, CC105
+  release): a second ADSR controlling the FM amount *over the life of the note*,
+  separate from the volume ADSR (CC73/75/24/72). Leave CC104 at 127 for a constant
+  amount; set a decay with CC104 low (e.g. CC103~90, CC104=0) so brightness fades
+  while the note rings - the struck-bell gesture. Like the volume ADSR, these apply
+  on the *next* note on, not to a sounding note.
+
+### Built-in FM presets (program change)
+
+Selecting one of these program numbers resets the channel and loads the preset; you
+can then tweak it with the CCs above, or build your own from scratch.
+
+| Program | Preset | Character
+| --- | --- | ---
+|14|Bell|Ratio 1.4, long ring on both amplitude and brightness - a struck FM bell.
+|38|Pluck bass|Bright FM attack transient over a cleaner sustained body.
+|39|Growl bass|Sustained modulation - an animated, buzzy bass.
+|40|Fat bass|Near-unity ratio (1.08) - sidebands cluster tightly for a thick bass.
+
+The bass presets are inharmonic "coil-FM" character voices (see the note above), not
+clean harmonic FM basses.
+
+### Example (a bell)
+
+Send, on a channel, before the note: CC73=0 (instant attack), CC75=124 (long decay),
+CC24=0 (silent sustain), CC20=14 (ratio 1.4), CC21=100 (index), CC103=110 + CC104=0
+(brightness decays as it rings). Then play a note - or just send program change 14.
 
 
 

@@ -252,6 +252,36 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
       // Set global tremolo LFO speed.
       _oc->tremoloLfo->SetHz(MIDI_TO_HZ(value));
       break;
+    case 105:
+      // FM modulation-index envelope release (AdsrEnvelope curve). Next note on.
+      setCC(&(midiChannel->modRelease), value);
+      break;
+    case 104:
+      // FM modulation-index envelope sustain. Next note on.
+      setCC(&(midiChannel->modSustain), value);
+      break;
+    case 103:
+      // FM modulation-index envelope decay -- a bell's brightness fall. Next note on.
+      setCC(&(midiChannel->modDecay), value);
+      break;
+    case 102:
+      // FM modulation-index envelope attack. Next note on.
+      setCC(&(midiChannel->modAttack), value);
+      break;
+    case 21:
+      // FM modulation index / peak depth (0 = none). Re-stamped on held notes.
+      requireRetune = setCC(&(midiChannel->fmIndex), value);
+      break;
+    case 20:
+      // FM carrier:modulator ratio in tenths (0 = FM off, 14 = 1.4, the classic
+      // Chowning bell). Re-stamped on held notes.
+      requireRetune = setCC(&(midiChannel->fmRatio), value);
+      break;
+    case 19:
+      // FM ratio fine adjust in hundredths (added to CC20's tenths) -- sub-tenth
+      // ratios for fatter/cleaner timbres off the coarse grid. Re-stamped on held.
+      requireRetune = setCC(&(midiChannel->fmRatioFine), value);
+      break;
     case 7:
       // Set channel volume.
       setCC(&(midiChannel->volume), value);
@@ -276,6 +306,56 @@ void CRMidi::handleProgramChange(byte channel, byte number) {
   AllNotesOff(midiChannel);
   midiChannel->ResetCC();
   switch (number) {
+    case 14:
+      // FM bell preset (also fully reachable via the CC set above): ratio 1.4
+      // carrier:modulator, instant attack + long ring on both amplitude and a
+      // zero-sustain modulation-index envelope, so brightness and loudness fade
+      // together like a struck bell.
+      midiChannel->fmRatio = 14;
+      midiChannel->fmIndex = 100;
+      midiChannel->decay = 124;
+      midiChannel->sustain = 0;
+      midiChannel->release = 40;
+      midiChannel->modDecay = 110;
+      midiChannel->modSustain = 0;
+      break;
+    case 38:
+      // FM pluck bass: ratio 1.2 with a fast-decaying, zero-sustain modulation
+      // index -- a bright FM attack transient over a clean, sustained body.
+      midiChannel->fmRatio = 12;
+      midiChannel->fmIndex = 115;
+      midiChannel->decay = 55;
+      midiChannel->sustain = 60;
+      midiChannel->release = 30;
+      midiChannel->modDecay = 30;
+      midiChannel->modSustain = 0;
+      midiChannel->modRelease = 20;
+      break;
+    case 39:
+      // FM growl bass: ratio 1.2 with a sustained modulation index -- an animated,
+      // buzzy, mid-forward bass.
+      midiChannel->fmRatio = 12;
+      midiChannel->fmIndex = 110;
+      midiChannel->decay = 60;
+      midiChannel->sustain = 85;
+      midiChannel->release = 40;
+      midiChannel->modDecay = 90;
+      midiChannel->modSustain = 70;
+      midiChannel->modRelease = 30;
+      break;
+    case 40:
+      // FM fat bass: a near-unity ratio (1.08, via the fine adjust) clusters the
+      // sidebands tightly around the fundamental for a thick, chorused bass.
+      midiChannel->fmRatio = 10;
+      midiChannel->fmRatioFine = 8;
+      midiChannel->fmIndex = 70;
+      midiChannel->decay = 40;
+      midiChannel->sustain = 95;
+      midiChannel->release = 40;
+      midiChannel->modDecay = 30;
+      midiChannel->modSustain = 40;
+      midiChannel->modRelease = 30;
+      break;
     default:
       break;
   }

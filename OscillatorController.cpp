@@ -58,6 +58,9 @@ Oscillator *OscillatorController::GetFreeOscillator() {
 
 void OscillatorController::ReturnFreeOscillator(Oscillator *oscillator) {
   oscillator->audible = false;
+  // Drop FM so a freed (inaudible) voice does no per-cycle modulation work in the
+  // scheduler until a note on re-stamps it; note on always sets it fresh anyway.
+  oscillator->SetFM(0, 0);
   _freeOscillators.push(oscillator);
 }
 

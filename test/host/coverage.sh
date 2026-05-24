@@ -21,10 +21,19 @@ status=0
 # assert on the WAVs. Present in the `final` image (not the bare test-build), so
 # guard on the tool existing. It is a separate -O2 binary, so it does not affect
 # the coverage numbers below; it just must pass.
+# FM fixtures must match their generator (make_fixtures.py); a stale tracked .mid
+# fails here. Pure Python, so it runs regardless of cr-render.
+echo
+echo "===== FM-bell fixtures drift check ====="
+python3 /src/test/host/make_fixtures.py --check || status=$?
+
 if command -v cr-render >/dev/null 2>&1; then
   echo
   echo "===== simulator (SMF->WAV) integration test ====="
   python3 /src/test/host/test_render.py || status=$?
+  echo
+  echo "===== FM-bell integration test ====="
+  python3 /src/test/host/test_fm.py || status=$?
 fi
 
 # Report only the synth's own sources: drop the test harness and stubs, and the

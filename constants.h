@@ -65,6 +65,17 @@ const uint8_t maxMidiPitch = 96;
 const uint8_t maxMidiVal = 127;
 const uint8_t midiPitchBendRange = 12;
 
+// FM-bell feature: peak period-swing fraction at full modulation index. Kept
+// below 1 so the period-domain modulation in Oscillator::SetNextTick can never
+// drive the period to <= 0. Compile-time constant (folded), so this is not a
+// runtime float op; exempt this one line from the soft-float gate like the other
+// scalar/table consts above (test/host/softfloat_guard.sh).
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
+const cr_fp_t fmMaxDepth = cr_fp_t(0.9);
+#pragma GCC diagnostic pop
+
 const uint8_t lfoCount = 3;
 
 #include "miditables.h"
