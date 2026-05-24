@@ -38,6 +38,14 @@ class OscillatorController {
   // so suppress the resulting unused-function report.
   // cppcheck-suppress unusedFunction
   Oscillator *TestOsc(uint8_t i) { return &_oscillators[i]; }
+  // ISR work-bound instrumentation for the scheduling regression test
+  // (test_midi.cpp TestRescheduleWorkBounded). _Reschedule() bumps Calls once per
+  // invocation and Visits once per oscillator scanned, so the test can lock the
+  // per-ISR scheduling cost at O(oscillatorCount), independent of polyphony, and
+  // catch an accidental nested/again-growing scan that would threaten the ~19 us
+  // master-ISR budget on the Due.
+  unsigned long testRescheduleCalls = 0;
+  unsigned long testRescheduleVisits = 0;
 #endif
  private:
   void _Reschedule();

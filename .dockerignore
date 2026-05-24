@@ -1,0 +1,10 @@
+# Keep the Docker build context small/clean (used by test/host/Dockerfile, whose
+# context is the repo root). None of these affect the host tests or the simulator.
+.git
+test/host/coverage
+**/*.wav
+**/*.o
+**/*.gcno
+**/*.gcda
+__pycache__
+arduino*.tar.xz

@@ -1,9 +1,20 @@
-# Self-contained host unit tests for the synth's frequency quantization.
+# Self-contained host image for the synth. It serves two purposes from one build:
+#   1. the host unit tests + coverage + cppcheck static-analysis gate (default CMD), and
+#   2. an off-target software simulation, `cr-render`, that renders a Standard MIDI
+#      File to a WAV by running the real synth code (see test/host/cr_render.cpp).
+#
 # Everything (compiler + the one header-only dependency) lives in the image, so
 # CI only has to `docker build` this file -- no toolchain or Arduino library
 # setup on the runner. Build context is the repo root:
 #   docker build -f test/host/Dockerfile -t chime-red-host-tests .
-FROM gcc:13-bookworm
+#
+# Multi-stage so the slow parts (toolchain image, cloning FixedPoints, apt +
+# pip installs) live in a cached `base` layer and are not redone on a source
+# change: only the cheap compile stages (`test-build`, `sim-build`) re-run, and
+# under BuildKit they build in parallel. `final` just bundles their outputs.
+
+# ---- base: toolchain + pinned dependencies (cached across source edits) -------
+FROM gcc:13-bookworm AS base
 
 # FixedPoints is header-only and platform-independent integer math; pin a ref
 # for reproducible CI. Override with --build-arg FIXEDPOINTS_REF=<tag|sha>.
@@ -15,14 +26,50 @@ RUN git clone --depth 1 --branch "${FIXEDPOINTS_REF}" \
 # Use a current gcovr from pip: Debian's gcovr 5.2 can't parse gcc 13's gcov
 # branch output ("UnknownLineType: branch ... (fallthrough)"). cppcheck (Debian
 # bookworm's 2.10) is the project's static-analysis gate: it runs here once, with
-# one pinned version, instead of each board CI job rebuilding cppcheck 2.8 from
+# one pinned version, instead of each board CI job rebuilding cppcheck from
 # source (see build.sh).
 RUN apt-get update && apt-get install -y --no-install-recommends python3-pip cppcheck \
       && rm -rf /var/lib/apt/lists/* \
       && pip3 install --break-system-packages --no-cache-dir 'gcovr>=7,<8'
 
+# Include paths shared by every build below: repo source, the host-test stubs
+# (Arduino.h / MIDI.h / ArduinoSTL.h / recording DigitalPin), and FixedPoints.
+ENV CR_INC="-I/src -I/src/test/host/stubs -I/opt/FixedPoints/src"
+
+# The real synth sources the MIDI suite and the simulator both compile + link.
+ENV CR_SYNTH_SRC="/src/CRMidi.cpp /src/MidiChannel.cpp /src/OscillatorController.cpp \
+/src/MidiNote.cpp /src/Lfo.cpp /src/AdsrEnvelope.cpp /src/Oscillator.cpp /src/CRIO.cpp"
+
+# ---- cppcheck: static-analysis gate on the device sources ---------------------
+# In its own stage keyed ONLY on the repo-root device sources (the exact set the
+# board CI checks), so editing the host tests or the simulator under test/host/
+# -- which cppcheck does not scan -- leaves this layer cached and skips the ~minute
+# it costs. A finding of the enabled severities fails the build via --error-exitcode,
+# and `final` depends on this stage's marker, so the gate still blocks the image.
+# --inline-suppr honours the in-source `// cppcheck-suppress` comments.
+FROM base AS cppcheck
 WORKDIR /src
-# Copy the whole repo so the test compiles the real source as it is now.
+COPY *.cpp *.h *.ino ./
+RUN cppcheck --enable=all --language=c++ --error-exitcode=1 --inline-suppr \
+      *.cpp *.h *.ino && touch /cppcheck.ok
+
+# ---- softfloat: no-FPU regression gate (Arduino Due is a Cortex-M3, no FPU) ----
+# Compiles the real synth TUs with -Werror=double-promotion -Werror=float-conversion
+# so a newly introduced runtime float/double op (software-emulated on the Due, and a
+# way to blow the ~19 us ISR budget) fails the build. Keyed only on the device
+# sources + stubs, so editing the simulator/tests leaves it cached; `final` depends
+# on its marker. See test/host/softfloat_guard.sh for the rationale and exemptions.
+FROM base AS softfloat
+WORKDIR /src
+COPY *.cpp *.h *.ino ./
+COPY test/host/stubs ./test/host/stubs
+COPY test/host/softfloat_guard.sh ./test/host/softfloat_guard.sh
+RUN bash test/host/softfloat_guard.sh && touch /softfloat.ok
+
+# ---- test-build: instrumented unit tests --------------------------------------
+FROM base AS test-build
+WORKDIR /src
+# Copy the whole repo so the tests compile the real source as it is now.
 COPY . .
 
 # Build both host test suites with gcov instrumentation (-O0 --coverage for
@@ -30,7 +77,6 @@ COPY . .
 # bit-identical at any -O). Each suite's objects + .gcno notes live in their own
 # dir so the plain and -DCR_HOST_TEST builds don't collide. Compiling here is the
 # build-time compile gate: a build failure fails the image.
-ENV CR_INC="-I/src -I/src/test/host/stubs -I/opt/FixedPoints/src"
 
 # Frequency suite: real Oscillator.cpp + pitch tables.
 RUN mkdir -p /cov/freq && cd /cov/freq && \
@@ -43,23 +89,33 @@ RUN mkdir -p /cov/freq && cd /cov/freq && \
 # hardware code builds; the Arduino MIDI library and ISRs are stubbed/bypassed.
 RUN mkdir -p /cov/midi && cd /cov/midi && \
     g++ --coverage -O0 -g -std=c++17 -Wall -DCR_HOST_TEST ${CR_INC} -c \
-      /src/test/host/test_midi.cpp \
-      /src/CRMidi.cpp /src/MidiChannel.cpp /src/OscillatorController.cpp \
-      /src/MidiNote.cpp /src/Lfo.cpp /src/AdsrEnvelope.cpp /src/Oscillator.cpp \
-      /src/CRIO.cpp && \
+      /src/test/host/test_midi.cpp ${CR_SYNTH_SRC} && \
     g++ --coverage -o test_midi *.o
 
-# Static-analysis gate on the synth's device sources (repo-root *.cpp/*.h/*.ino,
-# the same set the board CI used to check). A finding of the enabled severities
-# fails the image build, hence the job. --inline-suppr honours the in-source
-# `// cppcheck-suppress` comments (e.g. the host-test-only OscillatorController::
-# TestOsc, whose only caller is a test cppcheck doesn't see here). The CR_HOST_TEST
-# DigitalPin recorder is on the test-only include path (test/host/stubs), unseen
-# from /src, so cppcheck sees just the one real DigitalPin (no ODR false positive).
-RUN cd /src && cppcheck --enable=all --language=c++ --error-exitcode=1 \
-      --inline-suppr *.cpp *.h *.ino
+# ---- sim-build: the SMF->WAV simulator (optimised, no instrumentation) ---------
+FROM base AS sim-build
+WORKDIR /src
+COPY . .
+# cr-render runs the same real synth sources as the MIDI suite, plus the SMF
+# reader / WAV writer (test/host/*.h). -O2 (this is a tool, not a coverage
+# target); CR_HOST_TEST gives the base CRIO + recording pin the renderer samples;
+# CR_SIM_RANDOM swaps the deterministic test RNG for real pseudo-random channel-10
+# noise (test determinism is untouched -- only this build defines it).
+RUN g++ -O2 -std=c++17 -Wall -DCR_HOST_TEST -DCR_SIM_RANDOM ${CR_INC} \
+      /src/test/host/cr_render.cpp ${CR_SYNTH_SRC} -o /usr/local/bin/cr-render
+
+# ---- final: ship both. Default CMD runs the tests; cr-render is on PATH --------
+FROM test-build AS final
+# Pull in cr-render and the gate markers. Depending on the cppcheck and softfloat
+# stages here is what makes a static-analysis finding or a new runtime FP op fail
+# the image build.
+COPY --from=sim-build /usr/local/bin/cr-render /usr/local/bin/cr-render
+COPY --from=cppcheck /cppcheck.ok /cppcheck.ok
+COPY --from=softfloat /softfloat.ok /softfloat.ok
 
 # Run both suites and report coverage. Either suite failing fails CI; the
 # Cobertura XML is written to ${COVERAGE_OUT:-/coverage} (run_tests.sh mounts it
-# out). Also runnable at build time via the accompanying run_tests.sh.
+# out). The simulation is reachable in the same image, e.g.:
+#   docker run --rm -v "$PWD:/io" chime-red-host-tests cr-render /io/song.mid /io/song.wav
+# (test/host/render.sh wraps that.)
 CMD ["/src/test/host/coverage.sh"]

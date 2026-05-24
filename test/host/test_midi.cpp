@@ -36,6 +36,7 @@
 #include "MidiNote.h"
 #include "CRIO.h"
 #include "CRMidi.h"
+#include "IsrDriver.h"  // shared master-ISR replica (also used by cr_render.cpp)
 
 #include <cmath>
 #include <cstdio>
@@ -111,98 +112,9 @@ void RunControl(CRMidi &crmidi, int cycles) {
   }
 }
 
-// Faithful host replica of the master-clock ISR state machine in chime_red2.ino
-// (nextISR / modulateISR / slipTickISR), minus the serial MIDI.read(). On the
-// device a hardware timer fires masterISR at masterClockHz; here one Tick() is
-// one such firing. This is the part that actually turns a sounding voice into
-// pin pulses: when an oscillator triggers, the next firing computes the pulse
-// width (CRMidi::Modulate) and schedules it (CRIO::schedulePulse), and following
-// firings drive the pin via CRIO::handlePulse (pulseOn/pulseOff). Each Tick()
-// stamps crHostPinTick with the master-tick count so the recording DigitalPin
-// timestamps pin edges on the synth's own clock.
-class IsrDriver {
- public:
-  IsrDriver(OscillatorController &oc, CRMidi &crmidi, CRIO &crio)
-      : oc_(oc), crmidi_(crmidi), crio_(crio), state_(&IsrDriver::nextISR) {}
-
-  void Tick() {
-    crHostPinTick = masterTicks_;
-    (this->*state_)();
-  }
-
-  // Total master-clock advances so far == elapsed time * masterClockHz.
-  unsigned long masterTicks() const { return masterTicks_; }
-
-  // Worst-case latency instrumentation. MIDI.read() (the only point an incoming
-  // message is parsed) runs exactly when HandleControl() completes a cycle, so
-  // the spacing between those completions bounds how long a just-missed message
-  // waits to be processed. Call ResetLatency() to start a clean measurement
-  // window, then read maxReadGap() (in master ISRs).
-  void ResetLatency() {
-    maxReadGap_ = 0;
-    readCount_ = 0;
-  }
-  unsigned long maxReadGap() const { return maxReadGap_; }
-  unsigned long readCount() const { return readCount_; }
-
- private:
-  // Every oc.Triggered() is one master-clock tick; count them so the test has an
-  // exact, monotonic time base for measuring the pin's pulse rate.
-  bool Triggered() {
-    ++masterTicks_;
-    return oc_.Triggered();
-  }
-
-  void slipTickISR() {
-    Triggered();
-    Triggered();
-    state_ = &IsrDriver::nextISR;
-  }
-
-  void modulateISR() {
-    cr_fp_t p = crmidi_.Modulate(oc_.audibleOscillator);
-    crio_.schedulePulse(p);
-    Triggered();
-    state_ = &IsrDriver::nextISR;
-  }
-
-  void nextISR() {
-    if (crio_.handlePulse()) {
-      state_ = &IsrDriver::slipTickISR;
-      return;
-    }
-    if (Triggered()) {
-      if (oc_.audibleOscillator) {
-        state_ = &IsrDriver::modulateISR;
-      }
-      return;
-    }
-    if (oc_.controlTriggered) {
-      if (crmidi_.HandleControl()) {
-        oc_.controlTriggered = false;
-        // chime_red2.ino calls MIDI.read() here -- the sole point a MIDI byte is
-        // parsed. Record the ISR spacing between these completions.
-        if (readCount_ > 0) {
-          const unsigned long gap = masterTicks_ - lastReadTick_;
-          if (gap > maxReadGap_) {
-            maxReadGap_ = gap;
-          }
-        }
-        lastReadTick_ = masterTicks_;
-        ++readCount_;
-      }
-    }
-  }
-
-  OscillatorController &oc_;
-  CRMidi &crmidi_;
-  CRIO &crio_;
-  void (IsrDriver::*state_)();
-  unsigned long masterTicks_ = 0;
-  unsigned long lastReadTick_ = 0;
-  unsigned long maxReadGap_ = 0;
-  unsigned long readCount_ = 0;
-};
+// The master-clock ISR replica (IsrDriver) lives in test/host/IsrDriver.h so the
+// SMF->WAV simulator (cr_render.cpp) drives the synth through the identical state
+// machine. See that header for the per-Tick() behaviour and latency instrumentation.
 
 // note on allocates one audible oscillator at the note's frequency; note off
 // (after the control task runs) releases it back to silence.
@@ -753,6 +665,77 @@ void TestMessageLatency() {
   CHECK(actTicks > 0 && actTicks <= 32, "act latency %lu ISRs unexpected", actTicks);
 }
 
+// Scheduling work per master ISR must stay bounded: the master clock fires every
+// ~19 us, and the dominant per-ISR cost is OscillatorController::_Reschedule()
+// scanning the oscillator pool. This locks that cost at O(oscillatorCount) and,
+// crucially, independent of how many voices are sounding -- so a change that makes
+// the scan nested, repeated, or polyphony-dependent (any of which could push the
+// ISR past its budget on the Due) fails here. Counts come from the CR_HOST_TEST
+// instrumentation in OscillatorController (testRescheduleCalls / Visits).
+void TestRescheduleWorkBounded() {
+  std::printf("[work] master-ISR scheduling work is O(oscillatorCount), polyphony-independent\n");
+
+  // Run `voices` sustained notes from `baseNote` for `ticks` ISRs (after the
+  // schedule settles) and report: visits-per-reschedule (must be exactly
+  // oscillatorCount) and the worst oscillator-visits in any single ISR firing.
+  struct Result { unsigned long perReschedule; unsigned long worstPerTick; unsigned long calls; };
+  auto run = [](uint8_t voices, uint8_t baseNote, unsigned long ticks) -> Result {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    IsrDriver driver(oc, crmidi, crio);
+    for (uint8_t v = 0; v < voices; ++v) {
+      crmidi.handleNoteOn(1, baseNote + v, 100);  // distinct notes -> distinct voices
+    }
+    for (int i = 0; i < 4000; ++i) {
+      driver.Tick();  // reach steady state before measuring
+    }
+    oc.testRescheduleCalls = 0;
+    oc.testRescheduleVisits = 0;
+    unsigned long worstPerTick = 0;
+    for (unsigned long i = 0; i < ticks; ++i) {
+      const unsigned long before = oc.testRescheduleVisits;
+      driver.Tick();
+      const unsigned long delta = oc.testRescheduleVisits - before;
+      if (delta > worstPerTick) {
+        worstPerTick = delta;
+      }
+    }
+    const unsigned long perResched =
+        oc.testRescheduleCalls ? oc.testRescheduleVisits / oc.testRescheduleCalls : 0;
+    return {perResched, worstPerTick, oc.testRescheduleCalls};
+  };
+
+  const unsigned long kRun = 200000;
+  const Result idle = run(0, 0, kRun);
+  const Result chord = run(16, 60, kRun);
+  const Result high = run(16, maxMidiPitch - 15, kRun);
+  std::printf("  visits per reschedule: idle %lu, 16-voice %lu, 16 high %lu (oscillatorCount = %u)\n",
+              idle.perReschedule, chord.perReschedule, high.perReschedule, oscillatorCount);
+  std::printf("  worst oscillator-visits in one master ISR: idle %lu, 16-voice %lu, 16 high %lu\n",
+              idle.worstPerTick, chord.worstPerTick, high.worstPerTick);
+
+  // Each reschedule scans exactly the whole pool, regardless of load. A nested or
+  // polyphony-scaled scan would break this immediately.
+  CHECK(idle.perReschedule == oscillatorCount && chord.perReschedule == oscillatorCount &&
+            high.perReschedule == oscillatorCount,
+        "reschedule no longer O(oscillatorCount): %lu/%lu/%lu visits per call (expected %u)",
+        idle.perReschedule, chord.perReschedule, high.perReschedule, oscillatorCount);
+
+  // A single ISR reschedules at most twice (a slip tick does two catch-up
+  // triggers), so per-ISR scheduling work is capped at 2*oscillatorCount, not
+  // growing with polyphony.
+  const unsigned long cap = 2 * oscillatorCount;
+  CHECK(idle.worstPerTick <= cap && chord.worstPerTick <= cap && high.worstPerTick <= cap,
+        "per-ISR scheduling work exceeded %lu (idle %lu, chord %lu, high %lu) -- ISR budget risk",
+        cap, idle.worstPerTick, chord.worstPerTick, high.worstPerTick);
+
+  // Guard the test is actually exercising the scheduler (not measuring nothing).
+  CHECK(chord.calls > 0 && chord.worstPerTick > 0,
+        "scheduler not exercised under load (calls %lu, worst %lu)", chord.calls,
+        chord.worstPerTick);
+}
+
 }  // namespace
 
 int main() {
@@ -773,6 +756,7 @@ int main() {
   TestControlChangeHandling();
   TestEndToEndPinOscillation();
   TestMessageLatency();
+  TestRescheduleWorkBounded();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;
