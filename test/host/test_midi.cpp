@@ -18,10 +18,19 @@
 // Oscillator with audible == true, whose hzInv equals the requested note's
 // inverse frequency (pitchToHzInv[note]) for an un-bent, un-detuned note. The
 // CR_HOST_TEST-only OscillatorController::TestOsc() exposes them read-only.
+//
+// One test (TestEndToEndPinOscillation) goes further and exercises the entire
+// device signal chain on the host -- including the master-clock ISR state
+// machine (replicated from chime_red2.ino) and CRIO's pulse output toggling the
+// (virtual) coil/diag/speaker pins. The host DigitalPin records pin edges (see
+// CRDigitalPin.h / CR_HOST_TEST), so a note can be shown to actually make the
+// coil pin oscillate at the right frequency, and a note off to stop it.
 
 #include "config.h"
 #include "types.h"
 #include "constants.h"
+#include "pins.h"
+#include "CRDigitalPin.h"
 #include "OscillatorController.h"
 #include "MidiChannel.h"
 #include "MidiNote.h"
@@ -89,6 +98,10 @@ int AudibleAtNote(OscillatorController &oc, uint8_t note) {
 
 double Hz(cr_hzinv_t hzInv) { return 1.0 / static_cast<double>(hzInv); }
 
+double ToCents(double realized, double target) {
+  return 1200.0 * std::log2(realized / target);
+}
+
 // Advance the synth's control task enough whole cycles (counter sweeps 0..3) to
 // run envelope updates (case 0) and note expiry (case 1), so a released note's
 // oscillator is actually returned to the free pool.
@@ -97,6 +110,74 @@ void RunControl(CRMidi &crmidi, int cycles) {
     crmidi.HandleControl();
   }
 }
+
+// Faithful host replica of the master-clock ISR state machine in chime_red2.ino
+// (nextISR / modulateISR / slipTickISR), minus the serial MIDI.read(). On the
+// device a hardware timer fires masterISR at masterClockHz; here one Tick() is
+// one such firing. This is the part that actually turns a sounding voice into
+// pin pulses: when an oscillator triggers, the next firing computes the pulse
+// width (CRMidi::Modulate) and schedules it (CRIO::schedulePulse), and following
+// firings drive the pin via CRIO::handlePulse (pulseOn/pulseOff). Each Tick()
+// stamps crHostPinTick with the master-tick count so the recording DigitalPin
+// timestamps pin edges on the synth's own clock.
+class IsrDriver {
+ public:
+  IsrDriver(OscillatorController &oc, CRMidi &crmidi, CRIO &crio)
+      : oc_(oc), crmidi_(crmidi), crio_(crio), state_(&IsrDriver::nextISR) {}
+
+  void Tick() {
+    crHostPinTick = masterTicks_;
+    (this->*state_)();
+  }
+
+  // Total master-clock advances so far == elapsed time * masterClockHz.
+  unsigned long masterTicks() const { return masterTicks_; }
+
+ private:
+  // Every oc.Triggered() is one master-clock tick; count them so the test has an
+  // exact, monotonic time base for measuring the pin's pulse rate.
+  bool Triggered() {
+    ++masterTicks_;
+    return oc_.Triggered();
+  }
+
+  void slipTickISR() {
+    Triggered();
+    Triggered();
+    state_ = &IsrDriver::nextISR;
+  }
+
+  void modulateISR() {
+    cr_fp_t p = crmidi_.Modulate(oc_.audibleOscillator);
+    crio_.schedulePulse(p);
+    Triggered();
+    state_ = &IsrDriver::nextISR;
+  }
+
+  void nextISR() {
+    if (crio_.handlePulse()) {
+      state_ = &IsrDriver::slipTickISR;
+      return;
+    }
+    if (Triggered()) {
+      if (oc_.audibleOscillator) {
+        state_ = &IsrDriver::modulateISR;
+      }
+      return;
+    }
+    if (oc_.controlTriggered) {
+      if (crmidi_.HandleControl()) {
+        oc_.controlTriggered = false;
+      }
+    }
+  }
+
+  OscillatorController &oc_;
+  CRMidi &crmidi_;
+  CRIO &crio_;
+  void (IsrDriver::*state_)();
+  unsigned long masterTicks_ = 0;
+};
 
 // note on allocates one audible oscillator at the note's frequency; note off
 // (after the control task runs) releases it back to silence.
@@ -423,6 +504,117 @@ void TestModulation() {
         static_cast<double>(pulseWindowUs));
 }
 
+// End to end: a note on makes the coil output pin physically oscillate at the
+// note's pitch, and a note off stops it. This drives the entire device signal
+// chain on the host -- MIDI note -> MidiChannel/MidiNote -> OscillatorController
+// scheduling -> the master-clock ISR state machine (IsrDriver, replicated from
+// chime_red2.ino) -> CRIO's pulse output toggling the (virtual) coil/diag/
+// speaker pins -- and measures the coil pin's pulse rate against the requested
+// frequency. The recording host DigitalPin (CRDigitalPin.h, CR_HOST_TEST) makes
+// the pin waveform observable; everything upstream of the pin is the real synth.
+void TestEndToEndPinOscillation() {
+  std::printf("[e2e] note on -> coil pin oscillates at pitch -> note off -> pin idle\n");
+  std::printf("       note  targetHz    pinHz   errCents   period ticks (min/avg/max)\n");
+
+  // A spread of notes across the playable range (low bass up to ~1 kHz). Each
+  // must drive the coil pin at its frequency to within the single-master-clock
+  // floor -- the same bound test_frequency holds the scheduler to.
+  const uint8_t notes[] = {36, 48, 60, 69, 84};
+  for (uint8_t note : notes) {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    IsrDriver driver(oc, crmidi, crio);
+
+    auto resetPins = [&]() {
+      crHostPin(coilOutPin).Reset();
+      crHostPin(diagOutPin).Reset();
+      crHostPin(speakerOutPin).Reset();
+    };
+
+    CrPinRecord &coil = crHostPin(coilOutPin);
+    resetPins();
+
+    // Note on, then let the scheduler settle (skip the initial schedule
+    // transient) before starting a clean measurement window.
+    crmidi.handleNoteOn(1, note, 100);
+    for (int i = 0; i < 4000; ++i) {
+      driver.Tick();
+    }
+    resetPins();
+
+    // Run until the pin has emitted many pulses (or a generous safety cap), so
+    // the averaged period is well resolved.
+    const unsigned long targetEdges = 200;
+    const unsigned long capTicks = 2000000;
+    const unsigned long startTicks = driver.masterTicks();
+    while (coil.risingEdges < targetEdges &&
+           (driver.masterTicks() - startTicks) < capTicks) {
+      driver.Tick();
+    }
+    CHECK(coil.risingEdges >= targetEdges,
+          "note %u: coil pin emitted only %lu pulses (expected >= %lu) -- not oscillating",
+          note, coil.risingEdges, targetEdges);
+    if (coil.risingEdges < 2) {
+      continue;  // nothing measurable; the CHECK above already failed.
+    }
+
+    // Average pulse-to-pulse period in master ticks -> realized pin frequency.
+    const double avgPeriod = static_cast<double>(coil.lastRisingTick - coil.firstRisingTick) /
+                             static_cast<double>(coil.risingEdges - 1);
+    const double pinHz = static_cast<double>(masterClockHz) / avgPeriod;
+    const double targetHz = Hz(pitchToHzInv[note]);
+    const double schedHz = static_cast<double>(masterClockHz) /
+                           static_cast<double>(pitchToPeriod[note]);
+    const double errCents = ToCents(pinHz, targetHz);
+    std::printf("       %3u  %8.2f  %8.2f   %+7.2f   %lu / %.2f / %lu\n",
+                note, targetHz, pinHz, errCents, coil.minGapTicks, avgPeriod,
+                coil.maxGapTicks);
+
+    // (1) The pin oscillates at the period the oscillator actually scheduled
+    // (pitchToPeriod[note]); averaged over hundreds of pulses the slip jitter
+    // cancels, so the measured rate should be near-exact.
+    CHECK(std::fabs(ToCents(pinHz, schedHz)) <= 5.0,
+          "note %u: pin %.2f Hz != scheduled %.2f Hz (period %lu ticks)", note,
+          pinHz, schedHz, static_cast<unsigned long>(pitchToPeriod[note]));
+
+    // (2) End-to-end pitch accuracy vs the intended note frequency, held to the
+    // single-clock floor (<=5 cents below 250 Hz, <=30 cents up to 2 kHz) -- the
+    // same bounds test_frequency uses for the per-note path.
+    const double bound = targetHz <= 250.0 ? 5.0 : 30.0;
+    CHECK(std::fabs(errCents) <= bound,
+          "note %u (%.2f Hz): pin off by %.2f cents (bound %.1f)", note, targetHz,
+          errCents, bound);
+
+    // The three output pins are driven together (pulseOn/pulseOff write coil,
+    // diag and speaker), so they must show identical pulse counts.
+    CHECK(crHostPin(diagOutPin).risingEdges == coil.risingEdges &&
+              crHostPin(speakerOutPin).risingEdges == coil.risingEdges,
+          "note %u: output pins disagree (coil %lu, diag %lu, speaker %lu)", note,
+          coil.risingEdges, crHostPin(diagOutPin).risingEdges,
+          crHostPin(speakerOutPin).risingEdges);
+
+    // Note off: the pin must stop oscillating. Drive the ISR machine until the
+    // voice is released (envelope -> idle -> oscillator expired back to the
+    // pool), then confirm no further pulses are emitted.
+    crmidi.handleNoteOff(1, note);
+    int settle = 0;
+    while (AudibleCount(oc) > 0 && settle < 200000) {
+      driver.Tick();
+      ++settle;
+    }
+    CHECK(AudibleCount(oc) == 0, "note %u: voice still sounding after note off", note);
+
+    coil.Reset();
+    for (int i = 0; i < 20000; ++i) {
+      driver.Tick();
+    }
+    CHECK(coil.risingEdges == 0,
+          "note %u: coil pin still pulsing after note off (%lu pulses)", note,
+          coil.risingEdges);
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -441,6 +633,7 @@ int main() {
   TestSchedulerAndLfoTick();
   TestModulation();
   TestControlChangeHandling();
+  TestEndToEndPinOscillation();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;

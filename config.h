@@ -7,9 +7,12 @@
 // #pragma GCC optimize ("-O2")
 // #pragma GCC push_options
 
-// Define when running on CR original hardware.
-// Host unit tests (-DCR_HOST_TEST) use the base CRIO instead, which has no LCD
-// or ADC hardware, so they can build and run off-target.
+// Define when running on CR original hardware (LCD + analog pots). Off by
+// default so the CI board builds (arduino:sam, SparkFun:samd) and the host unit
+// tests all compile the base CRIO -- CRIOLcd's ADC setup (REG_ADC_MR free-run,
+// A9..A11) is Arduino Due-only and won't build for SAMD21 or off-target. The
+// CR_HOST_TEST guard keeps it off for host tests even if it is enabled here for
+// a real (Due) hardware build.
 #ifndef CR_HOST_TEST
-#define CR_UI 1
+//#define CR_UI 1
 #endif
