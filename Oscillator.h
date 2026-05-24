@@ -25,11 +25,29 @@ class Oscillator {
   cr_tick_t SetNextTick(cr_tick_t masterClock);
   void ScheduleNow(cr_tick_t masterClock);
   void Reset();
+  // Channel-10 pitched noise. SetNoiseRange stamps the period window [pMin,
+  // pMin+span] (precomputed from pitchToPeriod[] at note on); ApplyNoisePeriod
+  // drops a fresh random period inside it. The mutation is lazy (it only sets
+  // _clockPeriod, like SetFreqLazy) -- it takes effect at the oscillator's next
+  // SetNextTick with no reschedule, which is the cheapest possible update.
+  void SetNoiseRange(cr_tick_t pMin, cr_tick_t span) { _noisePMin = pMin; _noiseSpan = span; }
+  cr_tick_t noiseSpan() const { return _noiseSpan; }
+  void ApplyNoisePeriod(cr_tick_t offset) {
+    cr_tick_t period = _noisePMin + offset;
+    _clockPeriod = period ? period : 1;
+  }
   cr_hzinv_t hzInv;
   cr_fp_t pulseUsScale;
   bool audible;
   AdsrEnvelope *envelope;
   uint8_t index;
+#ifdef CR_HOST_TEST
+  // Read-only period introspection for host MIDI tests (test/host/test_midi.cpp).
+  // Its only caller is the test, which build.sh's repo-root cppcheck does not
+  // see, so suppress the resulting unused-function report.
+  // cppcheck-suppress unusedFunction
+  cr_tick_t TestClockPeriod() const { return _clockPeriod; }
+#endif
  private:
   void _updateNextClock(cr_tick_t offset);
   void _computeHzPulseUsScale(uint8_t newPitch);
@@ -40,6 +58,8 @@ class Oscillator {
   cr_tick_t _nextClock;
   cr_fp_t _maxHz;
   cr_fp_t _maxHzInv;
+  cr_tick_t _noisePMin;
+  cr_tick_t _noiseSpan;
 };
 
 #endif

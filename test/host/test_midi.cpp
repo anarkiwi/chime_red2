@@ -133,6 +133,18 @@ class IsrDriver {
   // Total master-clock advances so far == elapsed time * masterClockHz.
   unsigned long masterTicks() const { return masterTicks_; }
 
+  // Worst-case latency instrumentation. MIDI.read() (the only point an incoming
+  // message is parsed) runs exactly when HandleControl() completes a cycle, so
+  // the spacing between those completions bounds how long a just-missed message
+  // waits to be processed. Call ResetLatency() to start a clean measurement
+  // window, then read maxReadGap() (in master ISRs).
+  void ResetLatency() {
+    maxReadGap_ = 0;
+    readCount_ = 0;
+  }
+  unsigned long maxReadGap() const { return maxReadGap_; }
+  unsigned long readCount() const { return readCount_; }
+
  private:
   // Every oc.Triggered() is one master-clock tick; count them so the test has an
   // exact, monotonic time base for measuring the pin's pulse rate.
@@ -168,6 +180,16 @@ class IsrDriver {
     if (oc_.controlTriggered) {
       if (crmidi_.HandleControl()) {
         oc_.controlTriggered = false;
+        // chime_red2.ino calls MIDI.read() here -- the sole point a MIDI byte is
+        // parsed. Record the ISR spacing between these completions.
+        if (readCount_ > 0) {
+          const unsigned long gap = masterTicks_ - lastReadTick_;
+          if (gap > maxReadGap_) {
+            maxReadGap_ = gap;
+          }
+        }
+        lastReadTick_ = masterTicks_;
+        ++readCount_;
       }
     }
   }
@@ -177,6 +199,9 @@ class IsrDriver {
   CRIO &crio_;
   void (IsrDriver::*state_)();
   unsigned long masterTicks_ = 0;
+  unsigned long lastReadTick_ = 0;
+  unsigned long maxReadGap_ = 0;
+  unsigned long readCount_ = 0;
 };
 
 // note on allocates one audible oscillator at the note's frequency; note off
@@ -341,15 +366,34 @@ void TestPercussionChannel() {
         AudibleCount(oc));
 
   crio.percEnabled = true;
-  crmidi.handleNoteOn(10, 60, 100);
+  const uint8_t note = 60;
+  crmidi.handleNoteOn(10, note, 100);
   CHECK(AudibleCount(oc) >= 1, "percussion enabled: note should sound, got %d",
         AudibleCount(oc));
 
-  // Modulating a percussion voice takes the percussion branch (clears the noise
-  // mod flag) rather than applying vibrato; it still yields a sane pulse.
+  // Channel 10 has its own pitched-noise path (no shared vibrato LFO, no bend
+  // retune): note on stamps the voice with a master-clock period window one bend
+  // range either side of the note, so the voice starts at the note's own period.
   Oscillator *p = FirstAudible(oc);
+  CHECK(p != NULL && p->TestClockPeriod() == pitchToPeriod[note],
+        "percussion: voice should start at note period %u, got %u",
+        pitchToPeriod[note], p ? p->TestClockPeriod() : 0);
+
+  // Modulate() still yields a sane pulse, and moves the voice to a random period
+  // inside the window [period(note+range), period(note-range)]. The host's
+  // deterministic random() returns the low bound, so the period lands exactly on
+  // the window minimum -- the highest pitch, period(note+range).
+  const uint8_t hi = note + midiPitchBendRange;  // +12 semitones
+  const uint8_t lo = note - midiPitchBendRange;   // -12 semitones
   CHECK(p != NULL && crmidi.Modulate(p) > cr_fp_t(0),
         "percussion: Modulate should return a positive pulse");
+  CHECK(p != NULL && p->TestClockPeriod() == pitchToPeriod[hi],
+        "percussion noise: period %u != window min %u (note + %u semis)",
+        p ? p->TestClockPeriod() : 0, pitchToPeriod[hi], midiPitchBendRange);
+  CHECK(p != NULL && p->TestClockPeriod() >= pitchToPeriod[hi] &&
+            p->TestClockPeriod() <= pitchToPeriod[lo],
+        "percussion noise: period %u outside window [%u, %u]",
+        p ? p->TestClockPeriod() : 0, pitchToPeriod[hi], pitchToPeriod[lo]);
 }
 
 // Exercise the remaining control-change handlers, the program-change handler,
@@ -615,6 +659,100 @@ void TestEndToEndPinOscillation() {
   }
 }
 
+// Worst-case latency from a MIDI message arriving to the synth acting on it,
+// measured in master-clock ISRs. Two stages:
+//
+//  (1) Parse latency. The .ino only calls MIDI.read() when the control task
+//      (CRMidi::HandleControl) completes a cycle, and the control task only
+//      advances on ISRs where no oscillator is due and no pulse is being output.
+//      So sounding voices steal ISRs from it and spread the MIDI.read() points
+//      apart. A message arriving just after a read waits until the next one --
+//      that worst-case spacing is measured here, idle and under polyphony.
+//
+//  (2) Act latency. Once handleNoteOn runs, the voice is scheduled (ScheduleNow)
+//      and the coil pin first pulses a few ISRs later. Measured on a fresh voice
+//      (the shared coil pin can't attribute a pulse to one voice under load).
+//
+// Reported (not a tight pass/fail, except sanity ceilings): worst total =
+// parse + act. This characterises responsiveness and guards against a change
+// that lets the control task be starved of MIDI service.
+void TestMessageLatency() {
+  std::printf("[latency] worst-case MIDI message processing latency\n");
+  const double usPerTick = 1e6 / static_cast<double>(masterClockHz);
+
+  // Max ISRs between MIDI.read() points, for `voices` sustained notes starting at
+  // `note`, measured over `ticks` ISRs after the schedule settles.
+  auto readGap = [](uint8_t voices, uint8_t note, unsigned long ticks) -> unsigned long {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    IsrDriver driver(oc, crmidi, crio);
+    for (uint8_t v = 0; v < voices; ++v) {
+      crmidi.handleNoteOn(1, note + v, 100);  // distinct notes -> distinct voices
+    }
+    for (int i = 0; i < 4000; ++i) {
+      driver.Tick();  // let scheduling reach steady state
+    }
+    driver.ResetLatency();
+    for (unsigned long i = 0; i < ticks; ++i) {
+      driver.Tick();
+    }
+    return driver.maxReadGap();
+  };
+
+  const unsigned long kRun = 200000;  // ~3.8 s of synth time
+  const unsigned long idleGap = readGap(0, 0, kRun);
+  const unsigned long chordGap = readGap(16, 60, kRun);              // dense mid chord
+  const unsigned long topGap = readGap(16, maxMidiPitch - 15, kRun);  // 16 high voices
+
+  // Act latency: handleNoteOn -> first coil pulse, on a fresh voice.
+  unsigned long actTicks = 0;
+  {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    IsrDriver driver(oc, crmidi, crio);
+    for (int i = 0; i < 200; ++i) {
+      driver.Tick();
+    }
+    crHostPin(coilOutPin).Reset();
+    const unsigned long t0 = driver.masterTicks();
+    crmidi.handleNoteOn(1, 60, 100);
+    const unsigned long cap = t0 + 100000;
+    while (crHostPin(coilOutPin).risingEdges == 0 && driver.masterTicks() < cap) {
+      driver.Tick();
+    }
+    CHECK(crHostPin(coilOutPin).risingEdges > 0, "act latency: fresh voice never pulsed");
+    if (crHostPin(coilOutPin).risingEdges > 0) {
+      actTicks = crHostPin(coilOutPin).firstRisingTick - t0;
+    }
+    crHostPin(coilOutPin).Reset();
+  }
+
+  const unsigned long worst = chordGap + actTicks;
+  std::printf("  parse latency, ISRs between MIDI.read(): idle %lu, 16-voice chord %lu, "
+              "16 high voices %lu\n", idleGap, chordGap, topGap);
+  std::printf("  act latency, note-on -> first coil pulse: %lu ISRs\n", actTicks);
+  std::printf("  --> worst-case message latency (16-voice chord): %lu ISRs = %.1f us = %.3f ms\n",
+              worst, worst * usPerTick, worst * usPerTick / 1000.0);
+  std::printf("  --> adversarial 16x high-note load, parse latency: %lu ISRs = %.1f us\n",
+              topGap, topGap * usPerTick);
+
+  // Sanity ceilings: generous, meant to catch a control task that stops servicing
+  // MIDI, not normal cadence. Idle tracks the control-cycle period; loaded stays
+  // bounded (no starvation).
+  // Measured today (deterministic, bit-identical across platforms): idle 11,
+  // chord 23, high 29, act 2 ISRs. Ceilings sit a few x above to lock against a
+  // real starvation regression while tolerating minor control-cadence tweaks.
+  CHECK(idleGap > 0 && idleGap <= 32,
+        "idle MIDI.read spacing %lu ISRs unexpected (control cadence broken?)", idleGap);
+  CHECK(chordGap <= 128,
+        "16-voice MIDI.read spacing %lu ISRs too high -- control task starved", chordGap);
+  CHECK(topGap <= 256,
+        "adversarial MIDI.read spacing %lu ISRs too high -- control task starved", topGap);
+  CHECK(actTicks > 0 && actTicks <= 32, "act latency %lu ISRs unexpected", actTicks);
+}
+
 }  // namespace
 
 int main() {
@@ -634,6 +772,7 @@ int main() {
   TestModulation();
   TestControlChangeHandling();
   TestEndToEndPinOscillation();
+  TestMessageLatency();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;

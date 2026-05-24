@@ -16,8 +16,8 @@ enum { LOW = 0, HIGH = 1, INPUT = 0, OUTPUT = 1, INPUT_PULLUP = 2 };
 // Pulse output timing is not exercised by host tests.
 inline void delayMicroseconds(unsigned int) {}
 
-// Deterministic stand-in: return the low bound so percussion's randomBend() is
-// repeatable across runs (real firmware uses the hardware RNG).
+// Deterministic stand-in: return the low bound so percussion's pitched-noise
+// period pick is repeatable across runs (real firmware uses the hardware RNG).
 inline long random(long howsmall, long howbig) {
   (void)howbig;
   return howsmall;

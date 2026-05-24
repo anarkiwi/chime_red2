@@ -12,12 +12,14 @@
 #include "types.h"
 
 
-Oscillator::Oscillator() : hzInv(0), envelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0) {
+Oscillator::Oscillator() : hzInv(0), envelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0), _noisePMin(0), _noiseSpan(0) {
   Reset();
 }
 
 void Oscillator::Reset() {
   audible = false;
+  _noisePMin = 0;
+  _noiseSpan = 0;
   SetFreq(1, 1, 0, 2, 0);
 }
 

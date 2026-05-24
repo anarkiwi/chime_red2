@@ -50,7 +50,6 @@ class CRMidi {
     OscillatorController *_oc;
     CRIO *_crio;
     uint8_t _controlCounter;
-    bool _noiseModPending;
 };
 
 #endif
