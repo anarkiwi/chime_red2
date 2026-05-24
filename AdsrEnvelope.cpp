@@ -293,9 +293,12 @@ void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t
     isNull = true;
   } else {
     isNull = false;
-    // TODO: optimize this case - decay not often used.
     if (decay && sustain < maxMidiVal) {
-      _decayDec = (1.0 - _sustain) * (1.0 / _decay) * controlClockTickMs;
+      // (1.0/_decay)*controlClockTickMs is exactly AdsrCurveLevelStep[decay] (=
+      // controlClockTickMs/AdsrCurveMs[decay]), so reuse that precomputed
+      // reciprocal -- like _attackInc/_releaseDec above -- instead of a runtime
+      // divide (and the double-literal arithmetic) on the no-FPU target.
+      _decayDec = (cr_fp_t(1) - _sustain) * AdsrCurveLevelStep[decay];
     }
   }
   level = 0;

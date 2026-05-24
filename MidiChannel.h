@@ -63,8 +63,8 @@ class PitchBender {
       // Interpolate toward the bend target in inverse-Hz space. This previously
       // used pitchToHz (forward Hz), but the bend value became inverse-Hz in the
       // avoid-division change, so forwardHz - invHz was dimensionally wrong and
-      // sent any bent note (and the ch10 random-bend noise effect) to garbage
-      // frequencies. Inverse-Hz interpolation is consistent and division-free.
+      // sent any bent note to garbage frequencies. Inverse-Hz interpolation is
+      // consistent and division-free.
       // (origin/main's "Fix pitchbend" made the same pitchToHz->pitchToHzInv
       // correction but kept cr_fp_t; this branch supersedes it with cr_hzinv_t's
       // 30-bit inverse-Hz precision.)
@@ -72,6 +72,24 @@ class PitchBender {
       hzInv += window;
     }
     return hzInv;
+  }
+  // Master-clock period window for pitched noise: [pMin, pMin+span] spans the
+  // bend range either side of the played note (clamped like BendHz), read
+  // straight from the integer pitchToPeriod[] table. Computed once per note on
+  // so the per-pulse noise update is just one random pick inside the window --
+  // no inverse-Hz math, no division. Higher pitch -> smaller period, so pMin is
+  // at note+range and the wider period (pMax) is at note-range.
+  void NoiseBounds(uint8_t pitch, cr_tick_t &pMin, cr_tick_t &span) const {
+    int lo = int(pitch) - int(_pitchBendRange);
+    if (lo < 0) {
+      lo = 0;
+    }
+    int hi = int(pitch) + int(_pitchBendRange);
+    if (hi > _maxPitch) {
+      hi = _maxPitch;
+    }
+    pMin = pitchToPeriod[hi];
+    span = pitchToPeriod[lo] - pMin;
   }
  private:
   int16_t _bend;
@@ -110,6 +128,10 @@ class MidiChannel {
     uint8_t coarseModulation;
     uint8_t volume;
     bool lfoRestart;
+    // Structural (set once for the percussion channel), not a resettable CC:
+    // when true, note on stamps each voice's oscillator with a noise period
+    // window so Modulate() drives it as pitched noise instead of vibrato.
+    bool noiseModulated;
    private:
     void _AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
     MidiNoteDeque _midiNotes;

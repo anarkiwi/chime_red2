@@ -14,6 +14,7 @@
 
 MidiChannel::MidiChannel() {
   bzero(&_noteMap, sizeof(_noteMap));
+  noiseModulated = false;
   Reset();
 }
 
@@ -111,10 +112,18 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, Osc
   if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
     _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), midiNote, oc, int(detune2Abs) - int(DEFAULT_DETUNE));
   }
+  // Stamp the noise window on every voice -- a non-zero span only for the
+  // percussion channel, zero (cleared) otherwise. Doing it unconditionally also
+  // clears any stale window left on an oscillator recycled from the free pool.
+  cr_tick_t noisePMin = 0, noiseSpan = 0;
+  if (noiseModulated) {
+    _pitchBender.NoiseBounds(note, noisePMin, noiseSpan);
+  }
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->audible = true;
     oscillator->envelope = &(midiNote->envelope);
+    oscillator->SetNoiseRange(noisePMin, noiseSpan);
   }
   _midiNotes.push_back(midiNote);
   _noteMap[note] = midiNote;

@@ -27,7 +27,6 @@ bool CRMidi::setCC(uint8_t *value, uint8_t newValue) {
 CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   _oc = oc;
   _crio = crio;
-  _noiseModPending = false;
   _oc->ResetAll();
   _controlCounter = 0;
   bzero(&_oscillatorChannelMap, sizeof(_oscillatorChannelMap));
@@ -41,6 +40,7 @@ CRMidi::CRMidi(OscillatorController *oc, CRIO *crio) {
   }
   _percussionChannel = _midiChannels + maxMidiChannel;
   _midiChannelMap[PERC_CHAN] = _percussionChannel;
+  _percussionChannel->noiseModulated = true;
   ResetAll();
   updateCoeff();
 }
@@ -74,10 +74,6 @@ void CRMidi::ResetAll() {
   FOR_ALL_CHAN(ResetChannel(midiChannel));
 }
 
-inline int16_t randomBend() {
-  return random(0, 16383) - 8192;
-}
-
 void CRMidi::updateCoeff() {
   _crio->updateCoeff();
   _crio->updateLcdCoeff();
@@ -95,17 +91,11 @@ bool CRMidi::HandleControl() {
       FOR_ALL_CHAN(ExpireNotes(midiChannel));
       break;
     case 2:
-      if (!_noiseModPending) {
-        _percussionChannel->SetBend(randomBend(), _oc);
-        _noiseModPending = true;
-      }
-      break;
-    case 3:
       if (!_crio->pollPots()) {
         complete = true;
       }
       break;
-    case 4:
+    case 3:
       updateCoeff();
       break;
     default:
@@ -355,7 +345,12 @@ cr_fp_t CRMidi::Modulate(Oscillator *audibleOscillator) {
     p = ModulateChain(p - _crio->breakoutUs, audibleOscillator, midiChannel) + _crio->breakoutUs;
   }
   if (_percussionChannel == midiChannel) {
-    _noiseModPending = false;
+    // Pitched noise: give the voice that just pulsed a fresh random period
+    // inside its precomputed window. One random pick + a period write -- no
+    // bend/retune, and no vibrato LFO (which other channels keep via FMModulate).
+    if (audibleOscillator->noiseSpan()) {
+      audibleOscillator->ApplyNoisePeriod(random(audibleOscillator->noiseSpan() + 1));
+    }
   } else {
     FMModulate(midiChannel);
   }

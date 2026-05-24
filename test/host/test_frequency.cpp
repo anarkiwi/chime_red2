@@ -227,6 +227,87 @@ void TestSweepResolutionTo2k() {
         worst_cents);
 }
 
+// Lock the synth's worst-case pitch error across its whole operating envelope,
+// so any change that detunes the instrument fails here. The envelope is: every
+// playable MIDI note (default detune/no bend -> the pitchToPeriod[] path) and
+// every arbitrary frequency a detune or pitch bend can request, up to the top
+// note times full +cents detune (the hzInv -> period multiply path). The only
+// irreducible error is single-master-clock period rounding -- largest at the
+// shortest period, i.e. the highest pitch. Today the quantizer hits exactly that
+// floor on both paths, so the cap is that floor (plus a tiny allowance for
+// cr_hzinv_t's 1/f truncation on the arbitrary path). A failure means accuracy
+// regressed past the hardware floor: hzInv precision was lost, or pitchToPeriod[]
+// desynced from masterClockHz.
+void TestWorstCaseAccuracyCap() {
+  std::printf("[cap] worst-case pitch error across the operating envelope\n");
+  Oscillator osc;
+  osc.SetMaxPitch(maxMidiPitch);
+
+  double worst = 0.0, worstHz = 0.0;
+  const char *worstWhat = "";
+  cr_tick_t minPeriod = ~static_cast<cr_tick_t>(0);
+
+  // (a) Every playable plain note: the precomputed pitchToPeriod[] path.
+  for (int note = 1; note <= maxMidiPitch; ++note) {
+    cr_tick_t period = PeriodForHzInv(&osc, pitchToHzInv[note], note);
+    if (period < minPeriod) {
+      minPeriod = period;
+    }
+    double err = std::fabs(ToCents(RealizedHz(period), static_cast<double>(pitchToHz[note])));
+    if (err > worst) {
+      worst = err;
+      worstHz = static_cast<double>(pitchToHz[note]);
+      worstWhat = "note";
+    }
+  }
+
+  // (b) Arbitrary (detuned / pitch-bent) frequencies, up to the top note times
+  // full +cents detune -- the highest frequency normal controls can request.
+  const double topHz = static_cast<double>(pitchToHz[maxMidiPitch]) *
+                       static_cast<double>(midiTuneCents[maxMidiVal]);
+  double worstExcess = 0.0;
+  for (double f = 20.0; f <= topHz + 1e-9; f += 0.1) {
+    cr_tick_t period = PeriodForHzInv(&osc, cr_hzinv_t(1.0 / f));
+    if (period < minPeriod) {
+      minPeriod = period;
+    }
+    double err = std::fabs(ToCents(RealizedHz(period), f));
+    if (err > worst) {
+      worst = err;
+      worstHz = f;
+      worstWhat = "freq";
+    }
+    double excess = err - PeriodRoundingBoundCents(period);
+    if (excess > worstExcess) {
+      worstExcess = excess;
+    }
+  }
+
+  const double floorCap = PeriodRoundingBoundCents(minPeriod);
+  // cr_hzinv_t truncation on the arbitrary path is documented < 0.01 cents; allow
+  // a generous 1 cent so the cap tracks the physical floor, not a magic number.
+  const double kHzInvTruncationCents = 1.0;
+  const double cap = floorCap + kHzInvTruncationCents;
+  std::printf("  operating range: up to %.1f Hz (note %u + full cents detune)\n",
+              topHz, maxMidiPitch);
+  std::printf("  worst-case error: %.2f cents (at %.1f Hz, %s path)\n",
+              worst, worstHz, worstWhat);
+  std::printf("  single-clock floor at top (period %lu ticks): %.2f cents; "
+              "worst excess over floor: %.4f cents\n",
+              (unsigned long)minPeriod, floorCap, worstExcess);
+  std::printf("  --> cap = %.2f cents (floor %.2f + %.2f truncation allowance)\n",
+              cap, floorCap, kHzInvTruncationCents);
+
+  CHECK(worst <= cap,
+        "worst-case pitch error %.2f cents exceeds cap %.2f -- accuracy regressed "
+        "past the single-master-clock floor",
+        worst, cap);
+  // Guard the test is actually exercising the lossy quantizer (not measuring nothing).
+  CHECK(worst > 5.0,
+        "worst-case error %.2f cents implausibly small -- test not exercising the range",
+        worst);
+}
+
 // Pitch bend now interpolates in inverse-Hz space (PitchBender::BendHz). This
 // mirrors that math against the real tables + oscillator and asserts a bent note
 // is sane: endpoints land on the note and its bend target (to the single-clock
@@ -296,6 +377,7 @@ int main() {
   TestPeriodTableExact();
   TestNoteAccuracyTo2k();
   TestSweepResolutionTo2k();
+  TestWorstCaseAccuracyCap();
   TestBendInverseHz();
   TestTimingGranularity();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
