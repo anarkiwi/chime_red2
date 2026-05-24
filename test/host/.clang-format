@@ -1,0 +1,6 @@
+# Scoped to the host test + simulator C++ (this directory). clang-format searches
+# up the tree for the nearest .clang-format, so placing it here applies LLVM style
+# to test/host/* only -- the original firmware and the generated tables at the
+# repo root are deliberately left to their existing layout. The `lint` Docker
+# stage enforces this with `clang-format --dry-run --Werror`.
+BasedOnStyle: LLVM

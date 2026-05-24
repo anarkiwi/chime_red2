@@ -15,6 +15,15 @@
 #define FOR_ALL_LFO(lfo_func) \
   { for (Lfo *lfo = _lfos; lfo < _lfos + lfoCount; ++lfo) { lfo_func; } }
 
+// ISR work-bound instrumentation (host scheduling regression test only).
+#ifdef CR_HOST_TEST
+#define CR_TEST_RESCHED_CALL() (++testRescheduleCalls)
+#define CR_TEST_RESCHED_VISIT() (++testRescheduleVisits)
+#else
+#define CR_TEST_RESCHED_CALL()
+#define CR_TEST_RESCHED_VISIT()
+#endif
+
 
 OscillatorController::OscillatorController() {
   _masterClock = 0;
@@ -82,9 +91,11 @@ void OscillatorController::RestartLFOs() {
 }
 
 void OscillatorController::_Reschedule() {
+  CR_TEST_RESCHED_CALL();
   cr_tick_t minNextTriggeredTicks = masterClockMax;
   cr_tick_t clockRemainder = masterClockMax - _masterClock;
   FOR_ALL_OSC(
+    CR_TEST_RESCHED_VISIT();
     cr_tick_t nextTriggeredTicks = oscillator->TicksUntilTriggered(_masterClock, clockRemainder);
     if (nextTriggeredTicks == 0) {
       nextTriggeredTicks = oscillator->SetNextTick(_masterClock);

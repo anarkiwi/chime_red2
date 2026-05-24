@@ -11,6 +11,15 @@
 #include "constants.h"
 
 
+// The two lookup tables below are compile-time constants: every entry is folded
+// at build time, so the float/double arithmetic in their initializers is NOT a
+// runtime floating-point op (which would be software-emulated on the Due's
+// FPU-less Cortex-M3). Exempt the tables from the soft-float regression gate
+// (test/host/softfloat_guard.sh) without changing any value.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
+
 // print('const cr_fp_t AdsrCurveMs[] = {')
 // for i in range(128):
 //  print('  %f, // %u' % (i+((i**4)>>16), i))
@@ -276,6 +285,7 @@ const cr_fp_t AdsrCurveLevelStep[] = {
   1.0 / (3971.000000 / controlClockTickMs), // 126
   1.0 / (4096.000000 / controlClockTickMs), // 127
 };
+#pragma GCC diagnostic pop
 
 AdsrEnvelope::AdsrEnvelope() {
   Reset(0, 0, maxMidiVal, 0);
@@ -351,7 +361,7 @@ void AdsrEnvelope::HandleControl() {
         break;
     case ENV_ATTACK: {
         level += _attackInc;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level >= 1.0 || _ageMs > _attack) {
           Decay();
         }
@@ -359,7 +369,7 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_DECAY: {
         level -= _decayDec;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level <= _sustain || _ageMs > _decay) {
           Sustain();
         }
@@ -367,7 +377,7 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_RELEASE: {
         level -= _releaseDec;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level <= 0 || _ageMs > _release) {
           Idle();
         }

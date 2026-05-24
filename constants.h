@@ -17,14 +17,37 @@ const uint8_t pulseGuardTicks = 1;
 
 const uint8_t oscillatorCount = 16;
 const cr_tick_t masterClockHz = 52631;
+// Compile-time constant (1e6/52631 = 19.0002 -> 19), folded at build time, not a
+// runtime FP op; exempt from the soft-float gate (test/host/softfloat_guard.sh).
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
 const cr_tick_t masterClockPeriodUs = 1e6 / masterClockHz;
+#pragma GCC diagnostic pop
 const cr_tick_t masterClockMax = masterClockHz - 1;
 const cr_tick_t maxClockPeriod = 8192;
 
 const cr_slowtick_t controlClockRelHz = 10;
 const cr_slowtick_t controlClockHz = masterClockHz / controlClockRelHz;
 const cr_slowtick_t controlClockMax = controlClockRelHz - 1;
+// Compile-time constant: this double->float narrowing is folded by the compiler,
+// not a runtime floating-point op (which would be software-emulated on the Due's
+// FPU-less Cortex-M3). Exempt just this line from the soft-float regression gate
+// (test/host/softfloat_guard.sh). NB controlClockTickMs is still a `float`, so the
+// `cr_fp_t += controlClockTickMs` at runtime (MidiNote/AdsrEnvelope HandleControl)
+// does a float->fixed conversion each control tick -- a flagged, not-yet-taken
+// optimization is to make this a cr_fp_t constant.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
 const float controlClockTickMs = 1e3 / float(controlClockHz);
+#pragma GCC diagnostic pop
+// Fixed-point sibling of controlClockTickMs for the runtime per-control-tick age
+// accumulation (AdsrEnvelope / MidiNote HandleControl). Converting the float once,
+// here, makes those `cr_fp_t += ...` updates pure fixed-point adds instead of a
+// float->fixed conversion every control tick -- which is software-emulated on the
+// FPU-less Cortex-M3 (Arduino Due). controlClockTickMs stays float for the
+// compile-time AdsrCurveLevelStep[] table initialiser.
+const cr_fp_t controlClockTickMsFp = cr_fp_t(controlClockTickMs);
 
 const cr_slowtick_t lfoClockRelHz = 50;
 const cr_slowtick_t lfoClockHz = masterClockHz / lfoClockRelHz;

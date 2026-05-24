@@ -5,7 +5,15 @@ import time
 import unittest
 
 import rtmidi
-from rtmidi.midiconstants import (ALL_NOTES_OFF, ALL_SOUND_OFF, CONTROL_CHANGE, RESET_ALL_CONTROLLERS, NOTE_ON, NOTE_OFF, PITCH_BEND)
+from rtmidi.midiconstants import (
+    ALL_NOTES_OFF,
+    ALL_SOUND_OFF,
+    CONTROL_CHANGE,
+    RESET_ALL_CONTROLLERS,
+    NOTE_ON,
+    NOTE_OFF,
+    PITCH_BEND,
+)
 
 MIDI_PORT = 1
 MIDI_CHANNELS = set((1, 2, 3, 4, 5, 6, 7, 8, 10))
@@ -25,9 +33,9 @@ class TestChimeRed(unittest.TestCase):
         del self.midiout
 
     def send_channel_message(self, channel, status, data1=None, data2=None):
-        msg = [(status & 0xf0) | ((channel - 1) & 0xf)]
+        msg = [(status & 0xF0) | ((channel - 1) & 0xF)]
         if data1 is not None:
-            msg.append(data1 & 0x7f)
+            msg.append(data1 & 0x7F)
             if data2 is not None:
                 msg.append(data2 & 0x7)
         self.midiout.send_message(msg)
@@ -47,7 +55,7 @@ class TestChimeRed(unittest.TestCase):
         self.send_channel_message(channel, NOTE_OFF, note, 0)
 
     def send_pitch_bend(self, channel, bend):
-        self.send_channel_message(channel, PITCH_BEND, bend & 0x7f, (bend >> 7) & 0x7f)
+        self.send_channel_message(channel, PITCH_BEND, bend & 0x7F, (bend >> 7) & 0x7F)
 
     def test_simple_chaos(self):
         playing_pairs = set()
@@ -56,14 +64,16 @@ class TestChimeRed(unittest.TestCase):
             midi_note, channel = midi_pair
             self.note_off(channel, midi_note)
             playing_pairs.remove(midi_pair)
-            print('REMOVE %u %u (%u)' % (channel, midi_note, len(playing_pairs)))
+            print("REMOVE %u %u (%u)" % (channel, midi_note, len(playing_pairs)))
 
         def add_pair(midi_pair):
             midi_note, channel = midi_pair
             velocity = random.randint(1, 127)
             self.note_on(channel, midi_note, velocity)
             playing_pairs.add(midi_pair)
-            print('ADD %u %u %u (%u)' % (channel, midi_note, velocity, len(playing_pairs)))
+            print(
+                "ADD %u %u %u (%u)" % (channel, midi_note, velocity, len(playing_pairs))
+            )
 
         for i in range(1, 200):
             print(i)
@@ -90,5 +100,5 @@ class TestChimeRed(unittest.TestCase):
             remove_pair(midi_pair)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

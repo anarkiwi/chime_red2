@@ -33,6 +33,6 @@ void MidiNote::Reset() {
 }
 
 void MidiNote::HandleControl() {
-  ageMs += controlClockTickMs;
+  ageMs += controlClockTickMsFp;
   envelope.HandleControl();
 }

@@ -47,6 +47,14 @@ class Oscillator {
   // see, so suppress the resulting unused-function report.
   // cppcheck-suppress unusedFunction
   cr_tick_t TestClockPeriod() const { return _clockPeriod; }
+  // Per-oscillator trigger census for the scheduler characterization test
+  // (test_midi.cpp TestSchedulerCadence). SetNextTick() -- called exactly when
+  // this oscillator triggers and is rescheduled in OscillatorController::
+  // _Reschedule() -- bumps it, so the test can pin each voice's trigger cadence
+  // (= masterClockHz / period) independent of the scheduling algorithm. That is
+  // the behavioural safety net for a future _Reschedule rewrite (e.g. scanning
+  // only active voices, or a next-trigger heap).
+  unsigned long testTriggerCount = 0;
 #endif
  private:
   void _updateNextClock(cr_tick_t offset);
