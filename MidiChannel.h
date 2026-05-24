@@ -65,6 +65,9 @@ class PitchBender {
       // avoid-division change, so forwardHz - invHz was dimensionally wrong and
       // sent any bent note (and the ch10 random-bend noise effect) to garbage
       // frequencies. Inverse-Hz interpolation is consistent and division-free.
+      // (origin/main's "Fix pitchbend" made the same pitchToHz->pitchToHzInv
+      // correction but kept cr_fp_t; this branch supersedes it with cr_hzinv_t's
+      // 30-bit inverse-Hz precision.)
       cr_hzinv_t window = static_cast<cr_hzinv_t>(_pitchBendScale) * (pitchToHzInv[(uint8_t)windowPitch] - hzInv);
       hzInv += window;
     }

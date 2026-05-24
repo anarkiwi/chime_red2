@@ -10,7 +10,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-const cr_fp_t minBreakoutUs = 8;
+const cr_fp_t minBreakoutUs = 16;
 const cr_fp_t maxBreakoutUs = 48;
 const cr_fp_t pulseWindowUs = 120;
 const uint8_t pulseGuardTicks = 1;
