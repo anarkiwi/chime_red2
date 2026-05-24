@@ -361,7 +361,7 @@ void AdsrEnvelope::HandleControl() {
         break;
     case ENV_ATTACK: {
         level += _attackInc;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level >= 1.0 || _ageMs > _attack) {
           Decay();
         }
@@ -369,7 +369,7 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_DECAY: {
         level -= _decayDec;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level <= _sustain || _ageMs > _decay) {
           Sustain();
         }
@@ -377,7 +377,7 @@ void AdsrEnvelope::HandleControl() {
       break;
     case ENV_RELEASE: {
         level -= _releaseDec;
-        _ageMs += controlClockTickMs;
+        _ageMs += controlClockTickMsFp;
         if (level <= 0 || _ageMs > _release) {
           Idle();
         }

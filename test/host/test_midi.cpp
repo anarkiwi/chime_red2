@@ -736,6 +736,100 @@ void TestRescheduleWorkBounded() {
         chord.worstPerTick);
 }
 
+// Scheduler behaviour characterization -- the safety net for a future
+// OscillatorController::_Reschedule() rewrite (e.g. scanning only active voices,
+// or a next-trigger min-heap instead of the O(oscillatorCount) full scan). It
+// does NOT test the algorithm; it pins the observable scheduling behaviour any
+// correct implementation must reproduce, so an optimisation that changes timing
+// or voice priority is caught:
+//   (1) cadence: each sounding voice triggers at masterClockHz / its period, so
+//       the per-voice trigger census matches the realisable rate;
+//   (2) the chosen audibleOscillator is always actually audible; and
+//   (3) priority: the highest-frequency voice (shortest period) is selected as
+//       the audible oscillator most often.
+void TestSchedulerCadence() {
+  std::printf("[sched-cadence] per-voice trigger rate == masterClockHz/period; audible = highest freq\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  IsrDriver driver(oc, crmidi, crio);
+
+  // Three voices with distinct, known periods (low / mid / high pitch).
+  const uint8_t notes[] = {48, 60, 72};
+  const int kVoices = 3;
+  for (uint8_t n : notes) {
+    crmidi.handleNoteOn(1, n, 100);
+  }
+  for (int i = 0; i < 4000; ++i) {
+    driver.Tick();  // reach steady state before measuring
+  }
+
+  // Resolve each note to its oscillator (plain note -> hzInv == pitchToHzInv[n]).
+  Oscillator *osc[kVoices] = {nullptr, nullptr, nullptr};
+  for (int v = 0; v < kVoices; ++v) {
+    for (uint8_t i = 0; i < oscillatorCount; ++i) {
+      Oscillator *o = oc.TestOsc(i);
+      if (o->audible && o->hzInv == pitchToHzInv[notes[v]]) {
+        osc[v] = o;
+        break;
+      }
+    }
+    CHECK(osc[v] != NULL, "voice for note %u not found", notes[v]);
+    if (osc[v]) {
+      osc[v]->testTriggerCount = 0;  // start a clean census
+    }
+  }
+
+  const unsigned long startMaster = driver.masterTicks();
+  unsigned long audibleNonNull = 0, audibleNotActuallyAudible = 0;
+  unsigned long selected[kVoices] = {0, 0, 0};
+  const unsigned long K = 300000;
+  for (unsigned long i = 0; i < K; ++i) {
+    driver.Tick();
+    Oscillator *a = oc.audibleOscillator;
+    if (a) {
+      ++audibleNonNull;
+      if (!a->audible) {
+        ++audibleNotActuallyAudible;
+      }
+      for (int v = 0; v < kVoices; ++v) {
+        if (a == osc[v]) {
+          ++selected[v];
+        }
+      }
+    }
+  }
+  const unsigned long elapsedMaster = driver.masterTicks() - startMaster;
+
+  // (1) Cadence: count of triggers ~= elapsed master ticks / period, per voice.
+  for (int v = 0; v < kVoices; ++v) {
+    if (!osc[v]) {
+      continue;
+    }
+    const cr_tick_t period = pitchToPeriod[notes[v]];
+    const double expected = static_cast<double>(elapsedMaster) / static_cast<double>(period);
+    const double got = static_cast<double>(osc[v]->testTriggerCount);
+    const double relErr = std::fabs(got - expected) / expected;
+    std::printf("  note %u: period %lu ticks, triggers %.0f (expected %.0f, %.2f%% off), audible-selected %lu\n",
+                notes[v], (unsigned long)period, got, expected, 100.0 * relErr, selected[v]);
+    CHECK(relErr < 0.02,
+          "note %u trigger rate off by %.2f%% (got %.0f, expected %.0f) -- scheduling cadence changed",
+          notes[v], 100.0 * relErr, got, expected);
+  }
+
+  // (2) The audible oscillator is always one that is actually sounding.
+  CHECK(audibleNonNull > 0, "scheduler never selected an audible oscillator");
+  CHECK(audibleNotActuallyAudible == 0,
+        "audibleOscillator was a non-audible voice %lu times -- selection invariant broken",
+        audibleNotActuallyAudible);
+
+  // (3) Priority: the highest-frequency voice (note 72, shortest period) wins the
+  // audible selection most often.
+  CHECK(selected[2] >= selected[1] && selected[1] >= selected[0],
+        "audible-selection priority not by frequency (high %lu, mid %lu, low %lu)",
+        selected[2], selected[1], selected[0]);
+}
+
 }  // namespace
 
 int main() {
@@ -757,6 +851,7 @@ int main() {
   TestEndToEndPinOscillation();
   TestMessageLatency();
   TestRescheduleWorkBounded();
+  TestSchedulerCadence();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;

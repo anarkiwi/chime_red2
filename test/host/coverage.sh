@@ -17,6 +17,16 @@ status=0
 ( cd /cov/freq && ./test_frequency ) || status=$?
 ( cd /cov/midi && ./test_midi ) || status=$?
 
+# Simulator integration test: render SMFs through the real synth (cr-render) and
+# assert on the WAVs. Present in the `final` image (not the bare test-build), so
+# guard on the tool existing. It is a separate -O2 binary, so it does not affect
+# the coverage numbers below; it just must pass.
+if command -v cr-render >/dev/null 2>&1; then
+  echo
+  echo "===== simulator (SMF->WAV) integration test ====="
+  python3 /src/test/host/test_render.py || status=$?
+fi
+
 # Report only the synth's own sources: drop the test harness and stubs, and the
 # large generated data tables (no meaningful "coverage" there).
 # Report the synth's own sources only: drop the test harness/stubs and the large

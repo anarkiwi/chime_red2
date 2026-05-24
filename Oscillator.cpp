@@ -49,6 +49,9 @@ void Oscillator::ScheduleNow(cr_tick_t masterClock) {
 }
 
 cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
+#ifdef CR_HOST_TEST
+  ++testTriggerCount;  // scheduler-cadence characterization test census
+#endif
   if (_clockPeriod < maxClockPeriod) {
     _updateNextClock(masterClock + _clockPeriod);
   } else {
@@ -66,7 +69,8 @@ void Oscillator::SetMaxPitch(uint8_t maxPitch) {
 
 void Oscillator::_computeHzPulseUsScale(uint8_t newPitch) {
   if (newPitch) {
-    // TODO: avoid division
+    // _maxHzInv is the reciprocal of the max frequency, so this is a multiply,
+    // not a divide -- pitchToHz[newPitch] / maxHz expressed division-free.
     _hzPulseUsScale = 1.0 - (pitchToHz[newPitch] * _maxHzInv);
     if (_hzPulseUsScale <= 0) {
       _hzPulseUsScale = 0;

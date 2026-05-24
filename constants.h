@@ -41,6 +41,13 @@ const cr_slowtick_t controlClockMax = controlClockRelHz - 1;
 #pragma GCC diagnostic ignored "-Wfloat-conversion"
 const float controlClockTickMs = 1e3 / float(controlClockHz);
 #pragma GCC diagnostic pop
+// Fixed-point sibling of controlClockTickMs for the runtime per-control-tick age
+// accumulation (AdsrEnvelope / MidiNote HandleControl). Converting the float once,
+// here, makes those `cr_fp_t += ...` updates pure fixed-point adds instead of a
+// float->fixed conversion every control tick -- which is software-emulated on the
+// FPU-less Cortex-M3 (Arduino Due). controlClockTickMs stays float for the
+// compile-time AdsrCurveLevelStep[] table initialiser.
+const cr_fp_t controlClockTickMsFp = cr_fp_t(controlClockTickMs);
 
 const cr_slowtick_t lfoClockRelHz = 50;
 const cr_slowtick_t lfoClockHz = masterClockHz / lfoClockRelHz;
