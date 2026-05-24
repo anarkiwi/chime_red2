@@ -13,8 +13,11 @@ RUN git clone --depth 1 --branch "${FIXEDPOINTS_REF}" \
 
 # gcovr turns the gcov data into the coverage report (test/host/coverage.sh).
 # Use a current gcovr from pip: Debian's gcovr 5.2 can't parse gcc 13's gcov
-# branch output ("UnknownLineType: branch ... (fallthrough)").
-RUN apt-get update && apt-get install -y --no-install-recommends python3-pip \
+# branch output ("UnknownLineType: branch ... (fallthrough)"). cppcheck (Debian
+# bookworm's 2.10) is the project's static-analysis gate: it runs here once, with
+# one pinned version, instead of each board CI job rebuilding cppcheck 2.8 from
+# source (see build.sh).
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip cppcheck \
       && rm -rf /var/lib/apt/lists/* \
       && pip3 install --break-system-packages --no-cache-dir 'gcovr>=7,<8'
 
@@ -45,6 +48,16 @@ RUN mkdir -p /cov/midi && cd /cov/midi && \
       /src/MidiNote.cpp /src/Lfo.cpp /src/AdsrEnvelope.cpp /src/Oscillator.cpp \
       /src/CRIO.cpp && \
     g++ --coverage -o test_midi *.o
+
+# Static-analysis gate on the synth's device sources (repo-root *.cpp/*.h/*.ino,
+# the same set the board CI used to check). A finding of the enabled severities
+# fails the image build, hence the job. --inline-suppr honours the in-source
+# `// cppcheck-suppress` comments (e.g. the host-test-only OscillatorController::
+# TestOsc, whose only caller is a test cppcheck doesn't see here). The CR_HOST_TEST
+# DigitalPin recorder is on the test-only include path (test/host/stubs), unseen
+# from /src, so cppcheck sees just the one real DigitalPin (no ODR false positive).
+RUN cd /src && cppcheck --enable=all --language=c++ --error-exitcode=1 \
+      --inline-suppr *.cpp *.h *.ino
 
 # Run both suites and report coverage. Either suite failing fails CI; the
 # Cobertura XML is written to ${COVERAGE_OUT:-/coverage} (run_tests.sh mounts it

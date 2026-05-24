@@ -33,7 +33,10 @@ class OscillatorController {
   Lfo *configurableLfo;
   Oscillator *audibleOscillator;
 #ifdef CR_HOST_TEST
-  // Read-only introspection for host MIDI tests (test/host/test_midi.cpp).
+  // Read-only introspection for host MIDI tests (test/host/test_midi.cpp). Its
+  // only caller is the test, which build.sh's repo-root cppcheck does not see,
+  // so suppress the resulting unused-function report.
+  // cppcheck-suppress unusedFunction
   Oscillator *TestOsc(uint8_t i) { return &_oscillators[i]; }
 #endif
  private:
