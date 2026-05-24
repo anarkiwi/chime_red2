@@ -10,6 +10,7 @@ Docker test step (test/host/coverage.sh) so CI exercises the whole render path.
 Stdlib only (struct, wave, subprocess) -- no external deps, matching the rest of
 test/host. Exits non-zero on any failure.
 """
+
 import math
 import struct
 import subprocess
@@ -56,8 +57,7 @@ def write_smf(path, events, fmt=0, ntrks=1, tracks=None):
 
 
 def render(mid, wav, *opts):
-    subprocess.run([CR_RENDER, mid, wav, *opts], check=True,
-                   stderr=subprocess.DEVNULL)
+    subprocess.run([CR_RENDER, mid, wav, *opts], check=True, stderr=subprocess.DEVNULL)
 
 
 def read_wav(path):
@@ -74,8 +74,7 @@ def midi_hz(note):
 
 def pulse_hz(samples, rate):
     """Pulse rate from rising edges (0 -> positive) on the raw unipolar gate."""
-    edges = [i for i in range(1, len(samples))
-             if samples[i - 1] <= 0 < samples[i]]
+    edges = [i for i in range(1, len(samples)) if samples[i - 1] <= 0 < samples[i]]
     if len(edges) < 3:
         return 0.0
     a, b = edges[len(edges) // 4], edges[3 * len(edges) // 4]
@@ -87,9 +86,11 @@ def test_single_note_pitch(tmp):
     """Each rendered note's pulse rate matches its frequency to the clock floor."""
     print("[render] single-note pitch across the playable range")
     for note in (36, 48, 60, 69, 84, 96):
-        events = [(0, b"\xff\x51\x03" + struct.pack(">I", 500000)[1:]),
-                  (0, bytes([0x90, note, 100])),
-                  (PPQ * 2, bytes([0x80, note, 0]))]
+        events = [
+            (0, b"\xff\x51\x03" + struct.pack(">I", 500000)[1:]),
+            (0, bytes([0x90, note, 100])),
+            (PPQ * 2, bytes([0x80, note, 0])),
+        ]
         mid, wav = tmp + "/n.mid", tmp + "/n.wav"
         write_smf(mid, events)
         render(mid, wav, "--raw", "--no-normalize", "--tail", "0.2")
@@ -98,8 +99,10 @@ def test_single_note_pitch(tmp):
         tgt = midi_hz(note)
         cents = 1200 * math.log2(hz / tgt) if hz > 0 else 999
         bound = 5.0 if tgt <= 250.0 else 30.0
-        print("  note %3d  target %8.2f Hz  rendered %8.2f Hz  (%+6.1f cents)"
-              % (note, tgt, hz, cents))
+        print(
+            "  note %3d  target %8.2f Hz  rendered %8.2f Hz  (%+6.1f cents)"
+            % (note, tgt, hz, cents)
+        )
         if abs(cents) > bound:
             fail("note %d off by %.1f cents (bound %.1f)" % (note, cents, bound))
 
@@ -123,8 +126,10 @@ def test_polyphony_and_perc(tmp):
     peak = max(abs(x) for x in s)
     nonzero = sum(1 for x in s if x != 0)
     dur = len(s) / rate
-    print("  duration %.2f s, %d samples @ %d Hz, peak %d, %.1f%% non-zero"
-          % (dur, len(s), rate, peak, 100.0 * nonzero / len(s)))
+    print(
+        "  duration %.2f s, %d samples @ %d Hz, peak %d, %.1f%% non-zero"
+        % (dur, len(s), rate, peak, 100.0 * nonzero / len(s))
+    )
     if peak == 0:
         fail("chord render is silent (peak 0)")
     # triad held 2 beats @120bpm (1.0s); ch10 hit ends 0.25s later (last event
@@ -136,10 +141,20 @@ def test_polyphony_and_perc(tmp):
 def test_format1_multitrack(tmp):
     """Format-1 multi-track + a mid-file tempo change renders without error."""
     print("[render] format-1 multi-track with tempo change")
-    cond = mtrk([(0, b"\xff\x51\x03" + struct.pack(">I", 500000)[1:]),
-                 (PPQ * 2, b"\xff\x51\x03" + struct.pack(">I", 1000000)[1:])])
-    notes = mtrk([(0, bytes([0x90, 60, 100])), (PPQ, bytes([60, 0])),  # running status
-                  (0, bytes([0x90, 64, 100])), (PPQ * 2, bytes([0x80, 64, 0]))])
+    cond = mtrk(
+        [
+            (0, b"\xff\x51\x03" + struct.pack(">I", 500000)[1:]),
+            (PPQ * 2, b"\xff\x51\x03" + struct.pack(">I", 1000000)[1:]),
+        ]
+    )
+    notes = mtrk(
+        [
+            (0, bytes([0x90, 60, 100])),
+            (PPQ, bytes([60, 0])),  # running status
+            (0, bytes([0x90, 64, 100])),
+            (PPQ * 2, bytes([0x80, 64, 0])),
+        ]
+    )
     mid, wav = tmp + "/f1.mid", tmp + "/f1.wav"
     write_smf(mid, None, fmt=1, ntrks=2, tracks=[cond, notes])
     render(mid, wav, "--tail", "0.5")
@@ -159,8 +174,10 @@ def main():
         test_single_note_pitch(tmp)
         test_polyphony_and_perc(tmp)
         test_format1_multitrack(tmp)
-    print("\n%s (%d failure%s)" % ("PASS" if failures == 0 else "FAIL",
-                                   failures, "" if failures == 1 else "s"))
+    print(
+        "\n%s (%d failure%s)"
+        % ("PASS" if failures == 0 else "FAIL", failures, "" if failures == 1 else "s")
+    )
     return 0 if failures == 0 else 1
 
 

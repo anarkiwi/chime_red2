@@ -28,9 +28,11 @@ RUN git clone --depth 1 --branch "${FIXEDPOINTS_REF}" \
 # bookworm's 2.10) is the project's static-analysis gate: it runs here once, with
 # one pinned version, instead of each board CI job rebuilding cppcheck from
 # source (see build.sh).
-RUN apt-get update && apt-get install -y --no-install-recommends python3-pip cppcheck \
+# Toolchain for the gates: cppcheck (static analysis), clang-format (C++ style),
+# gcovr (coverage), black + pylint (Python style / unused checks).
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip cppcheck clang-format \
       && rm -rf /var/lib/apt/lists/* \
-      && pip3 install --break-system-packages --no-cache-dir 'gcovr>=7,<8'
+      && pip3 install --break-system-packages --no-cache-dir 'gcovr>=7,<8' black pylint
 
 # Include paths shared by every build below: repo source, the host-test stubs
 # (Arduino.h / MIDI.h / ArduinoSTL.h / recording DigitalPin), and FixedPoints.
@@ -65,6 +67,23 @@ COPY *.cpp *.h *.ino ./
 COPY test/host/stubs ./test/host/stubs
 COPY test/host/softfloat_guard.sh ./test/host/softfloat_guard.sh
 RUN bash test/host/softfloat_guard.sh && touch /softfloat.ok
+
+# ---- lint: C++ clang-format (LLVM) + Python black / pylint(unused) gates -------
+# Style gates on the code this repo hand-maintains. clang-format (LLVM, per the
+# test/host/.clang-format) covers the host test + simulator C++ only -- the
+# original firmware and the generated tables keep their existing layout. black
+# and pylint (unused-import / unused-variable only, per request) cover all the
+# Python under test/. Keyed solely on test/, so edits elsewhere leave it cached;
+# `final` depends on its marker, so a style or unused-symbol violation fails the
+# image. --dry-run --Werror / --check make these non-mutating checks.
+FROM base AS lint
+WORKDIR /src
+COPY test ./test
+RUN clang-format --dry-run --Werror \
+      $(find test/host -name '*.cpp' -o -name '*.h')
+RUN black --check $(find test -name '*.py' | sort)
+RUN pylint --disable=all --enable=unused-import,unused-variable \
+      $(find test -name '*.py' | sort) && touch /lint.ok
 
 # ---- test-build: instrumented unit tests --------------------------------------
 FROM base AS test-build
@@ -106,12 +125,13 @@ RUN g++ -O2 -std=c++17 -Wall -DCR_HOST_TEST -DCR_SIM_RANDOM ${CR_INC} \
 
 # ---- final: ship both. Default CMD runs the tests; cr-render is on PATH --------
 FROM test-build AS final
-# Pull in cr-render and the gate markers. Depending on the cppcheck and softfloat
-# stages here is what makes a static-analysis finding or a new runtime FP op fail
-# the image build.
+# Pull in cr-render and the gate markers. Depending on the cppcheck, softfloat and
+# lint stages here is what makes a static-analysis finding, a new runtime FP op, or
+# a C++/Python style (or unused-symbol) violation fail the image build.
 COPY --from=sim-build /usr/local/bin/cr-render /usr/local/bin/cr-render
 COPY --from=cppcheck /cppcheck.ok /cppcheck.ok
 COPY --from=softfloat /softfloat.ok /softfloat.ok
+COPY --from=lint /lint.ok /lint.ok
 
 # Run both suites and report coverage. Either suite failing fails CI; the
 # Cobertura XML is written to ${COVERAGE_OUT:-/coverage} (run_tests.sh mounts it

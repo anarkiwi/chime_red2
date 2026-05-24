@@ -5,8 +5,8 @@
 // core symbols those use (byte, delayMicroseconds, a deterministic random()).
 #ifndef CR_HOST_ARDUINO_STUB_H
 #define CR_HOST_ARDUINO_STUB_H
-#include <stdint.h>
 #include <cstdlib>
+#include <stdint.h>
 
 typedef uint8_t byte;
 
@@ -19,9 +19,10 @@ inline void delayMicroseconds(unsigned int) {}
 // Two stand-ins for the Arduino RNG, selected at compile time:
 //  - default (unit tests): return the low bound, so percussion's pitched-noise
 //    period pick is repeatable and the MIDI tests can assert exact periods.
-//  - CR_SIM_RANDOM (the SMF->WAV simulator, test/host/cr_render.cpp): draw a real
-//    pseudo-random value so channel-10 noise actually sounds noisy. Defined only
-//    for the renderer build, so test determinism is untouched.
+//  - CR_SIM_RANDOM (the SMF->WAV simulator, test/host/cr_render.cpp): draw a
+//  real
+//    pseudo-random value so channel-10 noise actually sounds noisy. Defined
+//    only for the renderer build, so test determinism is untouched.
 #ifdef CR_SIM_RANDOM
 inline long random(long howsmall, long howbig) {
   if (howbig <= howsmall) {

@@ -23,28 +23,30 @@ namespace cr_smf {
 struct Event {
   double seconds = 0.0;
   enum Kind { kNoteOn, kNoteOff, kCC, kPitchBend, kProgram } kind = kNoteOn;
-  uint8_t channel = 1;  // MIDI channel 1..16 (the synth's convention)
-  uint8_t d1 = 0;       // note / cc number / program; bend LSB folded into bend14
-  uint8_t d2 = 0;       // velocity / cc value
-  int bend14 = 0;       // pitch bend, centred: [-8192, 8191] (kPitchBend only)
+  uint8_t channel = 1; // MIDI channel 1..16 (the synth's convention)
+  uint8_t d1 = 0; // note / cc number / program; bend LSB folded into bend14
+  uint8_t d2 = 0; // velocity / cc value
+  int bend14 = 0; // pitch bend, centred: [-8192, 8191] (kPitchBend only)
 };
 
 struct File {
-  std::vector<Event> events;  // sorted by seconds (non-decreasing)
-  double endSeconds = 0.0;    // time of the last event
+  std::vector<Event> events; // sorted by seconds (non-decreasing)
+  double endSeconds = 0.0;   // time of the last event
 };
 
 namespace detail {
 
 // Big-endian fixed-width integer reads with bounds checks.
 inline bool ReadU16(const std::vector<uint8_t> &b, size_t &p, uint16_t &out) {
-  if (p + 2 > b.size()) return false;
+  if (p + 2 > b.size())
+    return false;
   out = (uint16_t(b[p]) << 8) | b[p + 1];
   p += 2;
   return true;
 }
 inline bool ReadU32(const std::vector<uint8_t> &b, size_t &p, uint32_t &out) {
-  if (p + 4 > b.size()) return false;
+  if (p + 4 > b.size())
+    return false;
   out = (uint32_t(b[p]) << 24) | (uint32_t(b[p + 1]) << 16) |
         (uint32_t(b[p + 2]) << 8) | b[p + 3];
   p += 4;
@@ -54,23 +56,26 @@ inline bool ReadU32(const std::vector<uint8_t> &b, size_t &p, uint32_t &out) {
 inline bool ReadVlq(const std::vector<uint8_t> &b, size_t &p, uint32_t &out) {
   out = 0;
   for (int i = 0; i < 4; ++i) {
-    if (p >= b.size()) return false;
+    if (p >= b.size())
+      return false;
     uint8_t c = b[p++];
     out = (out << 7) | (c & 0x7f);
-    if (!(c & 0x80)) return true;
+    if (!(c & 0x80))
+      return true;
   }
-  return false;  // malformed: >4 continuation bytes
+  return false; // malformed: >4 continuation bytes
 }
 
-// One raw channel/tempo event at an absolute tick, before tempo->seconds mapping.
+// One raw channel/tempo event at an absolute tick, before tempo->seconds
+// mapping.
 struct Raw {
   uint64_t tick;
-  uint8_t status;  // full status byte (0x80..0xEF), or 0xFF for a tempo marker
+  uint8_t status; // full status byte (0x80..0xEF), or 0xFF for a tempo marker
   uint8_t d1, d2;
-  uint32_t tempo;  // microseconds per quarter note (tempo markers only)
+  uint32_t tempo; // microseconds per quarter note (tempo markers only)
 };
 
-}  // namespace detail
+} // namespace detail
 
 // Parse the file at `path`. On success fills `out` and returns true; on any
 // structural error returns false with a human-readable reason in `err`.
@@ -96,13 +101,14 @@ inline bool Load(const char *path, File &out, std::string &err) {
     std::fclose(f);
   }
 
+  using detail::Raw;
   using detail::ReadU16;
   using detail::ReadU32;
   using detail::ReadVlq;
-  using detail::Raw;
 
   size_t p = 0;
-  if (b.size() < 14 || b[0] != 'M' || b[1] != 'T' || b[2] != 'h' || b[3] != 'd') {
+  if (b.size() < 14 || b[0] != 'M' || b[1] != 'T' || b[2] != 'h' ||
+      b[3] != 'd') {
     err = "missing MThd header";
     return false;
   }
@@ -114,14 +120,14 @@ inline bool Load(const char *path, File &out, std::string &err) {
     err = "truncated MThd";
     return false;
   }
-  p = 4 + 4 + hdrLen;  // skip any extra header bytes per the declared length
+  p = 4 + 4 + hdrLen; // skip any extra header bytes per the declared length
 
   // SMPTE division has a constant seconds/tick; PPQN depends on the tempo map.
   const bool smpte = (division & 0x8000) != 0;
   double smpteSecPerTick = 0.0;
   uint16_t ppqn = 0;
   if (smpte) {
-    const int fps = -static_cast<int8_t>(division >> 8);  // 24/25/29/30
+    const int fps = -static_cast<int8_t>(division >> 8); // 24/25/29/30
     const int tpf = division & 0xff;
     if (fps <= 0 || tpf <= 0) {
       err = "bad SMPTE division";
@@ -170,29 +176,34 @@ inline bool Load(const char *path, File &out, std::string &err) {
       uint8_t status = b[p];
       if (status & 0x80) {
         ++p;
-        if (status < 0xf0) runningStatus = status;  // channel voice: latches
+        if (status < 0xf0)
+          runningStatus = status; // channel voice: latches
       } else {
-        status = runningStatus;  // running status: reuse previous, byte is data
+        status = runningStatus; // running status: reuse previous, byte is data
         if (!(status & 0x80)) {
           err = "running status with no prior status";
           return false;
         }
       }
 
-      if (status == 0xff) {  // meta event
-        if (p >= trkEnd) { err = "truncated meta"; return false; }
+      if (status == 0xff) { // meta event
+        if (p >= trkEnd) {
+          err = "truncated meta";
+          return false;
+        }
         uint8_t type = b[p++];
         uint32_t len = 0;
         if (!ReadVlq(b, p, len) || p + len > trkEnd) {
           err = "bad meta length";
           return false;
         }
-        if (type == 0x51 && len == 3) {  // set tempo (us per quarter note)
-          uint32_t us = (uint32_t(b[p]) << 16) | (uint32_t(b[p + 1]) << 8) | b[p + 2];
+        if (type == 0x51 && len == 3) { // set tempo (us per quarter note)
+          uint32_t us =
+              (uint32_t(b[p]) << 16) | (uint32_t(b[p + 1]) << 8) | b[p + 2];
           raw.push_back(Raw{tick, 0xff, 0, 0, us});
         }
-        p += len;  // type 0x2F (end of track) and all others: skip the payload
-      } else if (status == 0xf0 || status == 0xf7) {  // sysex / escape
+        p += len; // type 0x2F (end of track) and all others: skip the payload
+      } else if (status == 0xf0 || status == 0xf7) { // sysex / escape
         uint32_t len = 0;
         if (!ReadVlq(b, p, len) || p + len > trkEnd) {
           err = "bad sysex length";
@@ -201,7 +212,7 @@ inline bool Load(const char *path, File &out, std::string &err) {
         p += len;
       } else {
         const uint8_t hi = status & 0xf0;
-        const uint8_t chan = (status & 0x0f) + 1;  // -> synth's 1..16
+        const uint8_t chan = (status & 0x0f) + 1; // -> synth's 1..16
         const bool twoData = (hi != 0xc0 && hi != 0xd0);
         if (p >= trkEnd || (twoData && p + 1 >= trkEnd)) {
           err = "truncated channel message";
@@ -209,13 +220,15 @@ inline bool Load(const char *path, File &out, std::string &err) {
         }
         uint8_t d1 = b[p++];
         uint8_t d2 = twoData ? b[p++] : 0;
-        if (hi == 0x80 || hi == 0x90 || hi == 0xb0 || hi == 0xc0 || hi == 0xe0) {
+        if (hi == 0x80 || hi == 0x90 || hi == 0xb0 || hi == 0xc0 ||
+            hi == 0xe0) {
           raw.push_back(Raw{tick, uint8_t(hi | (chan - 1)), d1, d2, 0});
         }
-        // 0xA0 (poly aftertouch) and 0xD0 (channel pressure): positioned, dropped.
+        // 0xA0 (poly aftertouch) and 0xD0 (channel pressure): positioned,
+        // dropped.
       }
     }
-    p = trkEnd;  // tolerate trailing bytes inside the declared track length
+    p = trkEnd; // tolerate trailing bytes inside the declared track length
   }
 
   // Stable sort by tick so same-tick events keep file/track order (tempo events
@@ -226,7 +239,7 @@ inline bool Load(const char *path, File &out, std::string &err) {
   // Walk in tick order, mapping ticks -> seconds through the tempo map.
   double anchorSec = 0.0;
   uint64_t anchorTick = 0;
-  double usPerQuarter = 500000.0;  // 120 BPM default until the first tempo meta
+  double usPerQuarter = 500000.0; // 120 BPM default until the first tempo meta
   for (const Raw &r : raw) {
     double sec;
     if (smpte) {
@@ -235,7 +248,7 @@ inline bool Load(const char *path, File &out, std::string &err) {
       sec = anchorSec + (static_cast<double>(r.tick - anchorTick) *
                          usPerQuarter / static_cast<double>(ppqn) / 1e6);
     }
-    if (r.status == 0xff) {  // tempo change: re-anchor (ignored under SMPTE)
+    if (r.status == 0xff) { // tempo change: re-anchor (ignored under SMPTE)
       if (!smpte) {
         anchorSec = sec;
         anchorTick = r.tick;
@@ -251,7 +264,7 @@ inline bool Load(const char *path, File &out, std::string &err) {
       e.kind = Event::kNoteOn;
       e.d1 = r.d1;
       e.d2 = r.d2;
-    } else if (hi == 0x90 || hi == 0x80) {  // note off, incl. note-on velocity 0
+    } else if (hi == 0x90 || hi == 0x80) { // note off, incl. note-on velocity 0
       e.kind = Event::kNoteOff;
       e.d1 = r.d1;
       e.d2 = r.d2;
@@ -264,7 +277,7 @@ inline bool Load(const char *path, File &out, std::string &err) {
       e.d1 = r.d1;
     } else if (hi == 0xe0) {
       e.kind = Event::kPitchBend;
-      e.bend14 = ((int(r.d2) << 7) | int(r.d1)) - 8192;  // centre at 0
+      e.bend14 = ((int(r.d2) << 7) | int(r.d1)) - 8192; // centre at 0
     } else {
       continue;
     }
@@ -276,6 +289,6 @@ inline bool Load(const char *path, File &out, std::string &err) {
   return true;
 }
 
-}  // namespace cr_smf
+} // namespace cr_smf
 
-#endif  // CR_HOST_SMF_H
+#endif // CR_HOST_SMF_H

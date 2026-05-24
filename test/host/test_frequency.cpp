@@ -1,10 +1,22 @@
 // Copyright 2019 Josh Bailey (josh@vandervecken.com)
 
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 
-// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 // Host-side unit tests for the synth's note-frequency quantization.
 //
@@ -22,16 +34,17 @@
 // single-master-clock floor (<~30 cents at 2 kHz).
 //
 // A plain note (default detune, no pitch bend) takes its period straight from
-// the precomputed pitchToPeriod[] table, so it hits that floor exactly. Detuned,
-// pitch-bent and otherwise arbitrary frequencies go through the period multiply
-// instead -- round(masterClockHz * hzInv) -- but hzInv is now cr_hzinv_t
-// (SFixed<1,30>, 30 fractional bits) rather than the old cr_fp_t (15 bits), so
-// its 1/f truncation error is negligible (<0.01 cents) and that path also lands
-// at the single-clock floor. These tests guard both paths against regression.
+// the precomputed pitchToPeriod[] table, so it hits that floor exactly.
+// Detuned, pitch-bent and otherwise arbitrary frequencies go through the period
+// multiply instead -- round(masterClockHz * hzInv) -- but hzInv is now
+// cr_hzinv_t (SFixed<1,30>, 30 fractional bits) rather than the old cr_fp_t (15
+// bits), so its 1/f truncation error is negligible (<0.01 cents) and that path
+// also lands at the single-clock floor. These tests guard both paths against
+// regression.
 
-#include "types.h"
-#include "constants.h"
 #include "Oscillator.h"
+#include "constants.h"
+#include "types.h"
 
 #include <cmath>
 #include <cstdio>
@@ -40,35 +53,38 @@ namespace {
 
 int g_failures = 0;
 
-#define CHECK(cond, ...)                                                   \
-  do {                                                                     \
-    if (!(cond)) {                                                         \
-      ++g_failures;                                                        \
-      std::printf("  FAIL (%s:%d): ", __FILE__, __LINE__);                 \
-      std::printf(__VA_ARGS__);                                            \
-      std::printf("\n");                                                   \
-    }                                                                      \
+#define CHECK(cond, ...)                                                       \
+  do {                                                                         \
+    if (!(cond)) {                                                             \
+      ++g_failures;                                                            \
+      std::printf("  FAIL (%s:%d): ", __FILE__, __LINE__);                     \
+      std::printf(__VA_ARGS__);                                                \
+      std::printf("\n");                                                       \
+    }                                                                          \
   } while (0)
 
-// Upper limit of the range we characterise: the synth's default highest playable
-// MIDI note (maxMidiPitch in constants.h) and its frequency. Deriving these from
-// the code's own constant -- rather than a hardcoded ceiling -- means the test
-// tracks the playable range automatically if maxMidiPitch changes (today note 96
+// Upper limit of the range we characterise: the synth's default highest
+// playable MIDI note (maxMidiPitch in constants.h) and its frequency. Deriving
+// these from the code's own constant -- rather than a hardcoded ceiling --
+// means the test tracks the playable range automatically if maxMidiPitch
+// changes (today note 96
 // ~= 2093 Hz; the previous hardcoded 2000 Hz cap silently stopped at note 95).
 const uint8_t kMaxNote = maxMidiPitch;
 const double kMaxHz = static_cast<double>(pitchToHz[maxMidiPitch]);
 
 // Regression bounds (worst-case absolute pitch error), with generous margin.
 //
-// Plain MIDI notes now route through pitchToPeriod[], so their only error is the
-// irreducible single-master-clock rounding floor: ~3 cents below 250 Hz and
-// ~23 cents at the top of the playable range. These bounds guard that path stays optimal.
-const double kNoteCentsBoundLow = 5.0;      // exact MIDI notes, target <= 250 Hz
-const double kNoteCentsBoundHigh = 30.0;    // exact MIDI notes, up to the top note
+// Plain MIDI notes now route through pitchToPeriod[], so their only error is
+// the irreducible single-master-clock rounding floor: ~3 cents below 250 Hz and
+// ~23 cents at the top of the playable range. These bounds guard that path
+// stays optimal.
+const double kNoteCentsBoundLow = 5.0;   // exact MIDI notes, target <= 250 Hz
+const double kNoteCentsBoundHigh = 30.0; // exact MIDI notes, up to the top note
 // Arbitrary (e.g. pitch-bent) frequencies now also reach the single-clock floor
 // thanks to the 30-bit cr_hzinv_t (was ~130 cents with 15-bit hzInv). If this
 // regresses past the floor, hzInv precision has been lost again.
-const double kSweepCentsBoundHigh = 40.0;   // arbitrary frequencies, up to the top note
+const double kSweepCentsBoundHigh =
+    40.0; // arbitrary frequencies, up to the top note
 
 double ToCents(double realized, double target) {
   return 1200.0 * std::log2(realized / target);
@@ -85,7 +101,8 @@ cr_tick_t PeriodForHzInv(Oscillator *osc, cr_hzinv_t hzInv, uint8_t pitch = 0) {
 // documented to compute: round(masterClockHz * hzInv), clamped to at least one
 // tick. Cross-checks the oscillator's integer hzInvToTicks() path.
 cr_tick_t ModelPeriod(cr_hzinv_t hzInv) {
-  double n = std::round(static_cast<double>(masterClockHz) * static_cast<double>(hzInv));
+  double n = std::round(static_cast<double>(masterClockHz) *
+                        static_cast<double>(hzInv));
   if (n < 1.0) {
     n = 1.0;
   }
@@ -122,13 +139,15 @@ void TestPeriodFormula() {
 }
 
 // Guard the precomputed period table. pitchToPeriod[] is generated for a fixed
-// masterClockHz; if masterClockHz is changed without regenerating it, every note
-// silently detunes. Assert each entry is still round(masterClockHz / pitchToHz),
-// and that the oscillator's plain-note path actually returns it.
+// masterClockHz; if masterClockHz is changed without regenerating it, every
+// note silently detunes. Assert each entry is still round(masterClockHz /
+// pitchToHz), and that the oscillator's plain-note path actually returns it.
 void TestPeriodTableExact() {
-  std::printf("[period table] pitchToPeriod == round(masterClockHz / pitchToHz), and is used\n");
-  // Table correctness for every note: guards against masterClockHz being changed
-  // without regenerating the literal table (which would silently detune all notes).
+  std::printf("[period table] pitchToPeriod == round(masterClockHz / "
+              "pitchToHz), and is used\n");
+  // Table correctness for every note: guards against masterClockHz being
+  // changed without regenerating the literal table (which would silently detune
+  // all notes).
   for (int note = 0; note <= absMaxMidiPitch; ++note) {
     double f = static_cast<double>(pitchToHz[note]);
     long want = std::lround(static_cast<double>(masterClockHz) / f);
@@ -136,39 +155,43 @@ void TestPeriodTableExact() {
       want = 1;
     }
     CHECK(pitchToPeriod[note] == static_cast<cr_tick_t>(want),
-          "pitchToPeriod[%d]=%lu != round(masterClockHz/%.4f)=%ld -- regenerate table",
+          "pitchToPeriod[%d]=%lu != round(masterClockHz/%.4f)=%ld -- "
+          "regenerate table",
           note, (unsigned long)pitchToPeriod[note], f, want);
   }
   // The oscillator must actually take the precomputed-period path for every
   // playable note. (Above maxMidiPitch the 15-bit hzInv can no longer resolve
-  // adjacent semitones -- 1/f collides between neighbours -- so the multiply path
-  // there is ambiguous; that is exactly why the range is capped and why the period
-  // table, not the hzInv multiply, is the source of truth.)
+  // adjacent semitones -- 1/f collides between neighbours -- so the multiply
+  // path there is ambiguous; that is exactly why the range is capped and why
+  // the period table, not the hzInv multiply, is the source of truth.)
   Oscillator osc;
   osc.SetMaxPitch(maxMidiPitch);
   for (int note = 0; note <= maxMidiPitch; ++note) {
     cr_tick_t period = PeriodForHzInv(&osc, pitchToHzInv[note], note);
     CHECK(period == pitchToPeriod[note],
-          "note %d: oscillator period %lu != table %lu (plain-note path not taken)",
+          "note %d: oscillator period %lu != table %lu (plain-note path not "
+          "taken)",
           note, (unsigned long)period, (unsigned long)pitchToPeriod[note]);
   }
 }
 
-// Worst-case uncertainty for the notes the synth actually plays (default detune,
-// no pitch bend): drive the oscillator exactly as MidiChannel does -- the real
-// pitchToHzInv[] table entry together with the note's pitch, so the precomputed
-// pitchToPeriod[] path is exercised -- and compare the realized frequency to the
-// table's intended frequency pitchToHz[].
+// Worst-case uncertainty for the notes the synth actually plays (default
+// detune, no pitch bend): drive the oscillator exactly as MidiChannel does --
+// the real pitchToHzInv[] table entry together with the note's pitch, so the
+// precomputed pitchToPeriod[] path is exercised -- and compare the realized
+// frequency to the table's intended frequency pitchToHz[].
 void TestNoteAccuracy() {
-  std::printf("[per-note] realized vs intended frequency, every playable MIDI note (1..%u, up to %.1f Hz)\n",
+  std::printf("[per-note] realized vs intended frequency, every playable MIDI "
+              "note (1..%u, up to %.1f Hz)\n",
               kMaxNote, kMaxHz);
   std::printf("  note  targetHz  realizedHz   errHz   errCents\n");
   Oscillator osc;
   osc.SetMaxPitch(maxMidiPitch);
   double worst_cents = 0.0, worst_hz = 0.0;
   int worst_note = 0;
-  // Every playable note up to the code's max (maxMidiPitch), inclusive -- so the
-  // top note is always covered rather than cut off by a hardcoded Hz ceiling.
+  // Every playable note up to the code's max (maxMidiPitch), inclusive -- so
+  // the top note is always covered rather than cut off by a hardcoded Hz
+  // ceiling.
   for (int note = 1; note <= kMaxNote; ++note) {
     double target = static_cast<double>(pitchToHz[note]);
     cr_tick_t period = PeriodForHzInv(&osc, pitchToHzInv[note], note);
@@ -189,7 +212,8 @@ void TestNoteAccuracy() {
       worst_hz = err_hz;
     }
   }
-  std::printf("  --> worst note error over notes 1..%u: %+.2f cents (%+.3f Hz) at note %d\n",
+  std::printf("  --> worst note error over notes 1..%u: %+.2f cents (%+.3f Hz) "
+              "at note %d\n",
               kMaxNote, worst_cents, worst_hz, worst_note);
 }
 
@@ -197,12 +221,13 @@ void TestNoteAccuracy() {
 // pitch-bent note): sweep finely and feed cr_hzinv_t(1/f), characterising the
 // resolution of the whole hzInv -> period quantizer.
 void TestSweepResolution() {
-  std::printf("[sweep] worst-case uncertainty for arbitrary frequencies up to %.1f Hz\n",
+  std::printf("[sweep] worst-case uncertainty for arbitrary frequencies up to "
+              "%.1f Hz\n",
               kMaxHz);
   Oscillator osc;
   osc.SetMaxPitch(maxMidiPitch);
   double worst_cents = 0.0, worst_hz = 0.0, at_hz = 0.0;
-  double worst_vs_floor = 0.0;  // how far past the single-clock rounding floor.
+  double worst_vs_floor = 0.0; // how far past the single-clock rounding floor.
   for (double f = 20.0; f <= kMaxHz + 1e-9; f += 0.1) {
     cr_tick_t period = PeriodForHzInv(&osc, cr_hzinv_t(1.0 / f));
     double realized = RealizedHz(period);
@@ -219,7 +244,8 @@ void TestSweepResolution() {
   }
   std::printf("  --> worst error: %+.2f cents (%+.3f Hz) at %.1f Hz\n",
               worst_cents, worst_hz, at_hz);
-  std::printf("  --> worst excess over period-rounding floor (hzInv truncation): %.2f cents\n",
+  std::printf("  --> worst excess over period-rounding floor (hzInv "
+              "truncation): %.2f cents\n",
               worst_vs_floor);
   CHECK(std::fabs(worst_cents) <= kSweepCentsBoundHigh,
         "sweep worst %.2f cents exceeds bound %.1f", worst_cents,
@@ -227,7 +253,8 @@ void TestSweepResolution() {
   // Sanity: the quantizer really is lossy at this rate (guards against the test
   // silently measuring nothing).
   CHECK(std::fabs(worst_cents) > 1.0,
-        "sweep worst %.2f cents implausibly small -- test not exercising quantizer",
+        "sweep worst %.2f cents implausibly small -- test not exercising "
+        "quantizer",
         worst_cents);
 }
 
@@ -237,11 +264,11 @@ void TestSweepResolution() {
 // every arbitrary frequency a detune or pitch bend can request, up to the top
 // note times full +cents detune (the hzInv -> period multiply path). The only
 // irreducible error is single-master-clock period rounding -- largest at the
-// shortest period, i.e. the highest pitch. Today the quantizer hits exactly that
-// floor on both paths, so the cap is that floor (plus a tiny allowance for
+// shortest period, i.e. the highest pitch. Today the quantizer hits exactly
+// that floor on both paths, so the cap is that floor (plus a tiny allowance for
 // cr_hzinv_t's 1/f truncation on the arbitrary path). A failure means accuracy
-// regressed past the hardware floor: hzInv precision was lost, or pitchToPeriod[]
-// desynced from masterClockHz.
+// regressed past the hardware floor: hzInv precision was lost, or
+// pitchToPeriod[] desynced from masterClockHz.
 void TestWorstCaseAccuracyCap() {
   std::printf("[cap] worst-case pitch error across the operating envelope\n");
   Oscillator osc;
@@ -257,7 +284,8 @@ void TestWorstCaseAccuracyCap() {
     if (period < minPeriod) {
       minPeriod = period;
     }
-    double err = std::fabs(ToCents(RealizedHz(period), static_cast<double>(pitchToHz[note])));
+    double err = std::fabs(
+        ToCents(RealizedHz(period), static_cast<double>(pitchToHz[note])));
     if (err > worst) {
       worst = err;
       worstHz = static_cast<double>(pitchToHz[note]);
@@ -288,71 +316,87 @@ void TestWorstCaseAccuracyCap() {
   }
 
   const double floorCap = PeriodRoundingBoundCents(minPeriod);
-  // cr_hzinv_t truncation on the arbitrary path is documented < 0.01 cents; allow
-  // a generous 1 cent so the cap tracks the physical floor, not a magic number.
+  // cr_hzinv_t truncation on the arbitrary path is documented < 0.01 cents;
+  // allow a generous 1 cent so the cap tracks the physical floor, not a magic
+  // number.
   const double kHzInvTruncationCents = 1.0;
   const double cap = floorCap + kHzInvTruncationCents;
-  std::printf("  operating range: up to %.1f Hz (note %u + full cents detune)\n",
-              topHz, maxMidiPitch);
-  std::printf("  worst-case error: %.2f cents (at %.1f Hz, %s path)\n",
-              worst, worstHz, worstWhat);
+  std::printf(
+      "  operating range: up to %.1f Hz (note %u + full cents detune)\n", topHz,
+      maxMidiPitch);
+  std::printf("  worst-case error: %.2f cents (at %.1f Hz, %s path)\n", worst,
+              worstHz, worstWhat);
   std::printf("  single-clock floor at top (period %lu ticks): %.2f cents; "
               "worst excess over floor: %.4f cents\n",
               (unsigned long)minPeriod, floorCap, worstExcess);
-  std::printf("  --> cap = %.2f cents (floor %.2f + %.2f truncation allowance)\n",
-              cap, floorCap, kHzInvTruncationCents);
+  std::printf(
+      "  --> cap = %.2f cents (floor %.2f + %.2f truncation allowance)\n", cap,
+      floorCap, kHzInvTruncationCents);
 
   CHECK(worst <= cap,
-        "worst-case pitch error %.2f cents exceeds cap %.2f -- accuracy regressed "
+        "worst-case pitch error %.2f cents exceeds cap %.2f -- accuracy "
+        "regressed "
         "past the single-master-clock floor",
         worst, cap);
-  // Guard the test is actually exercising the lossy quantizer (not measuring nothing).
+  // Guard the test is actually exercising the lossy quantizer (not measuring
+  // nothing).
   CHECK(worst > 5.0,
-        "worst-case error %.2f cents implausibly small -- test not exercising the range",
+        "worst-case error %.2f cents implausibly small -- test not exercising "
+        "the range",
         worst);
 }
 
 // Pitch bend now interpolates in inverse-Hz space (PitchBender::BendHz). This
-// mirrors that math against the real tables + oscillator and asserts a bent note
-// is sane: endpoints land on the note and its bend target (to the single-clock
-// floor), and intermediate bends rise monotonically and stay strictly between --
-// the previous forward-Hz subtraction sent bent notes to ~1 Hz / 52631 Hz.
-// (The dimensional correctness itself is enforced by the type system: hzInv is
-// cr_hzinv_t and pitchToHz is cr_fp_t, so forwardHz - hzInv no longer compiles.)
+// mirrors that math against the real tables + oscillator and asserts a bent
+// note is sane: endpoints land on the note and its bend target (to the
+// single-clock floor), and intermediate bends rise monotonically and stay
+// strictly between -- the previous forward-Hz subtraction sent bent notes to ~1
+// Hz / 52631 Hz. (The dimensional correctness itself is enforced by the type
+// system: hzInv is cr_hzinv_t and pitchToHz is cr_fp_t, so forwardHz - hzInv no
+// longer compiles.)
 void TestBendInverseHz() {
-  std::printf("[bend] inverse-Hz pitch-bend interpolation is monotonic and bounded\n");
-  const uint8_t note = 69;                       // A4, 440 Hz
-  const uint8_t target = note + midiPitchBendRange;  // bend up 12 semitones -> A5
+  std::printf(
+      "[bend] inverse-Hz pitch-bend interpolation is monotonic and bounded\n");
+  const uint8_t note = 69; // A4, 440 Hz
+  const uint8_t target =
+      note + midiPitchBendRange; // bend up 12 semitones -> A5
   const double noteHz = static_cast<double>(pitchToHz[note]);
   const double targetHz = static_cast<double>(pitchToHz[target]);
   const cr_hzinv_t noteInv = pitchToHzInv[note];
   const cr_hzinv_t targetInv = pitchToHzInv[target];
-  std::printf("  note %u (%.2f Hz) bending up to note %u (%.2f Hz)\n",
-              note, noteHz, target, targetHz);
+  std::printf("  note %u (%.2f Hz) bending up to note %u (%.2f Hz)\n", note,
+              noteHz, target, targetHz);
   // Allow the single-clock floor (up to half a tick) around the window edges.
   const double margin = std::pow(2.0, kSweepCentsBoundHigh / 1200.0);
   double prev = 0.0;
-  for (int16_t bend : {0, 2048, 4096, 6144, 8192}) {  // 0 .. full up-bend
+  for (int16_t bend : {0, 2048, 4096, 6144, 8192}) { // 0 .. full up-bend
     cr_fp_t scale = (bend == 0) ? cr_fp_t(0) : midiPbProp[bend];
     cr_hzinv_t bentInv = noteInv;
     if (scale > cr_fp_t(0)) {
-      bentInv = noteInv + static_cast<cr_hzinv_t>(scale) * (targetInv - noteInv);
+      bentInv =
+          noteInv + static_cast<cr_hzinv_t>(scale) * (targetInv - noteInv);
     }
     double realized = RealizedHz(hzInvToTicks(masterClockHz, bentInv));
-    std::printf("  bend %5d (scale %.5f) -> %8.2f Hz  (%+7.2f cents from note)\n",
-                bend, static_cast<double>(scale), realized, ToCents(realized, noteHz));
+    std::printf(
+        "  bend %5d (scale %.5f) -> %8.2f Hz  (%+7.2f cents from note)\n", bend,
+        static_cast<double>(scale), realized, ToCents(realized, noteHz));
     // Sane and bounded: never the old garbage, always within the bend window.
     CHECK(realized >= noteHz / margin && realized <= targetHz * margin,
           "bend %d realized %.2f Hz outside [%.2f, %.2f] -- bend math broken",
           bend, realized, noteHz, targetHz);
-    CHECK(realized > prev, "bend %d not monotonic (%.2f <= %.2f)", bend, realized, prev);
+    CHECK(realized > prev, "bend %d not monotonic (%.2f <= %.2f)", bend,
+          realized, prev);
     prev = realized;
   }
   // Endpoints: zero bend == the note, full bend == the target, to the floor.
-  double zeroErr = ToCents(RealizedHz(hzInvToTicks(masterClockHz, noteInv)), noteHz);
-  double fullErr = ToCents(RealizedHz(hzInvToTicks(masterClockHz, targetInv)), targetHz);
-  CHECK(std::fabs(zeroErr) <= kSweepCentsBoundHigh, "zero-bend off by %.2f cents", zeroErr);
-  CHECK(std::fabs(fullErr) <= kSweepCentsBoundHigh, "full-bend off by %.2f cents", fullErr);
+  double zeroErr =
+      ToCents(RealizedHz(hzInvToTicks(masterClockHz, noteInv)), noteHz);
+  double fullErr =
+      ToCents(RealizedHz(hzInvToTicks(masterClockHz, targetInv)), targetHz);
+  CHECK(std::fabs(zeroErr) <= kSweepCentsBoundHigh,
+        "zero-bend off by %.2f cents", zeroErr);
+  CHECK(std::fabs(fullErr) <= kSweepCentsBoundHigh,
+        "full-bend off by %.2f cents", fullErr);
 }
 
 // Timing side of the single master clock: the trigger time of every pulse is
@@ -362,21 +406,25 @@ void TestTimingGranularity() {
   std::printf("[timing] master clock granularity\n");
   double tick_us = 1e6 / static_cast<double>(masterClockHz);
   double jitter_us = 0.5 * tick_us;
-  std::printf("  masterClockHz = %lu, master tick = %.4f us, max trigger jitter = +/-%.4f us\n",
+  std::printf("  masterClockHz = %lu, master tick = %.4f us, max trigger "
+              "jitter = +/-%.4f us\n",
               (unsigned long)masterClockHz, tick_us, jitter_us);
-  std::printf("  masterClockPeriodUs (integer, used by pulse-width state machine) = %lu\n",
+  std::printf("  masterClockPeriodUs (integer, used by pulse-width state "
+              "machine) = %lu\n",
               (unsigned long)masterClockPeriodUs);
   // masterClockPeriodUs is integer-truncated (1e6/52631 = 19.0002 -> 19).
   CHECK(masterClockPeriodUs == (cr_tick_t)(1e6 / masterClockHz),
-        "masterClockPeriodUs %lu unexpected", (unsigned long)masterClockPeriodUs);
+        "masterClockPeriodUs %lu unexpected",
+        (unsigned long)masterClockPeriodUs);
   CHECK(tick_us > 0.0 && jitter_us > 0.0, "non-positive timing granularity");
 }
 
-}  // namespace
+} // namespace
 
 int main() {
-  std::printf("chime_red2 host frequency-uncertainty tests (master clock %lu Hz)\n\n",
-              (unsigned long)masterClockHz);
+  std::printf(
+      "chime_red2 host frequency-uncertainty tests (master clock %lu Hz)\n\n",
+      (unsigned long)masterClockHz);
   TestPeriodFormula();
   TestPeriodTableExact();
   TestNoteAccuracy();

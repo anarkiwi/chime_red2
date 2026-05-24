@@ -1,7 +1,8 @@
-// Minimal PCM16 mono WAV writer for the host simulator (test/host/cr_render.cpp).
-// Header-only, no dependencies beyond the C++ stdlib, so it links into the
-// single-translation-unit renderer without touching the device build or the
-// repo-root cppcheck set (which only scans the repo root, not test/host).
+// Minimal PCM16 mono WAV writer for the host simulator
+// (test/host/cr_render.cpp). Header-only, no dependencies beyond the C++
+// stdlib, so it links into the single-translation-unit renderer without
+// touching the device build or the repo-root cppcheck set (which only scans the
+// repo root, not test/host).
 #ifndef CR_HOST_WAV_H
 #define CR_HOST_WAV_H
 
@@ -41,8 +42,8 @@ inline bool WriteMono16(const char *path, const std::vector<int16_t> &samples,
   u32(riffSize);
   std::fwrite("WAVE", 1, 4, f);
   std::fwrite("fmt ", 1, 4, f);
-  u32(16);              // PCM fmt chunk size
-  u16(1);               // audio format: PCM
+  u32(16); // PCM fmt chunk size
+  u16(1);  // audio format: PCM
   u16(channels);
   u32(sampleRate);
   u32(byteRate);
@@ -58,6 +59,6 @@ inline bool WriteMono16(const char *path, const std::vector<int16_t> &samples,
   return ok;
 }
 
-}  // namespace cr_wav
+} // namespace cr_wav
 
-#endif  // CR_HOST_WAV_H
+#endif // CR_HOST_WAV_H
