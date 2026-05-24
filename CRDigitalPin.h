@@ -13,6 +13,20 @@
 // cppcheck-suppress missingIncludeSystem
 #include <Arduino.h>
 
+#ifdef CR_HOST_TEST
+// Host unit tests don't drive real pins; a no-op DigitalPin lets CRIO compile
+// and link off-target (the register macros below need an Arduino arch).
+template<uint8_t PinNumber>
+class DigitalPin {
+ public:
+  DigitalPin(bool, bool) {}
+  void high() {}
+  void low() {}
+  bool read() const { return false; }
+  void write(bool) {}
+};
+#else
+
 #define PINMASK(PinNumber) digitalPinToBitMask(PinNumber)
 #define	PINPPORT(PinNumber, PPIO)	digitalPinToPort(PinNumber)->PPIO
 
@@ -58,4 +72,5 @@ class DigitalPin {
     }
   }
 };
+#endif  // CR_HOST_TEST
 #endif  // DigitalPin_h

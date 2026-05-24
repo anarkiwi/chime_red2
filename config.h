@@ -8,4 +8,8 @@
 // #pragma GCC push_options
 
 // Define when running on CR original hardware.
-//#define CR_UI 1
+// Host unit tests (-DCR_HOST_TEST) use the base CRIO instead, which has no LCD
+// or ADC hardware, so they can build and run off-target.
+#ifndef CR_HOST_TEST
+#define CR_UI 1
+#endif

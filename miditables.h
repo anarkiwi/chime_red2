@@ -144,7 +144,7 @@ const cr_fp_t pitchToHz[] = {
 };
 
 
-const cr_fp_t pitchToHzInv[] = {
+const cr_hzinv_t pitchToHzInv[] = {
   // 8.1757989156),  // MIDI note 0 C
   INVERTFLOAT(1.0),  // special case - MIDI note 0 C is 1Hz for tick effect. 8Hz not that useful anyway.
   INVERTFLOAT(8.6619572180),  // MIDI note 1 Db
@@ -274,6 +274,149 @@ const cr_fp_t pitchToHzInv[] = {
   INVERTFLOAT(11175.3034058561),  // MIDI note 125 F
   INVERTFLOAT(11839.8215267723),  // MIDI note 126 Gb
   INVERTFLOAT(12543.8539514160),  // MIDI note 127 G
+};
+
+// pitchToPeriod[i] is the integer number of master-clock ticks for MIDI note i:
+// round(masterClockHz / pitchToHz[i]). Doing this division at table-build time (a)
+// keeps division off the device, like the rest of these tables, and (b) avoids the
+// large 1/f fixed-point truncation error of pitchToHzInv -- a plain (un-detuned,
+// un-bent) note then lands on the optimal period, leaving only the irreducible
+// single-master-clock rounding (<~30 cents at 2 kHz). Detuned/bent notes still use
+// the pitchToHzInv path. MASTERCLOCKHZ-DEPENDENT: regenerate if masterClockHz
+// changes -- the host frequency test (test/host) fails if this desyncs.
+//
+//   MC = 52631  # = masterClockHz in constants.h
+//   for freq in pitchToHz_floats:  # the literals in pitchToHz[] above
+//     print('  %u,' % round(MC / freq))
+const cr_tick_t pitchToPeriod[] = {
+  52631,  // special case - MIDI note 0 C is 1Hz for tick effect. 8Hz not that useful anyway.
+  6076,  // MIDI note 1 Db
+  5735,  // MIDI note 2 D
+  5413,  // MIDI note 3 Eb
+  5109,  // MIDI note 4 E
+  4823,  // MIDI note 5 F
+  4552,  // MIDI note 6 Gb
+  4296,  // MIDI note 7 G
+  4055,  // MIDI note 8 Ab
+  3828,  // MIDI note 9 A
+  3613,  // MIDI note 10 Bb
+  3410,  // MIDI note 11 B
+  3219,  // MIDI note 12 C
+  3038,  // MIDI note 13 Db
+  2868,  // MIDI note 14 D
+  2707,  // MIDI note 15 Eb
+  2555,  // MIDI note 16 E
+  2411,  // MIDI note 17 F
+  2276,  // MIDI note 18 Gb
+  2148,  // MIDI note 19 G
+  2028,  // MIDI note 20 Ab
+  1914,  // MIDI note 21 A
+  1806,  // MIDI note 22 Bb
+  1705,  // MIDI note 23 B
+  1609,  // MIDI note 24 C
+  1519,  // MIDI note 25 Db
+  1434,  // MIDI note 26 D
+  1353,  // MIDI note 27 Eb
+  1277,  // MIDI note 28 E
+  1206,  // MIDI note 29 F
+  1138,  // MIDI note 30 Gb
+  1074,  // MIDI note 31 G
+  1014,  // MIDI note 32 Ab
+  957,  // MIDI note 33 A
+  903,  // MIDI note 34 Bb
+  853,  // MIDI note 35 B
+  805,  // MIDI note 36 C
+  760,  // MIDI note 37 Db
+  717,  // MIDI note 38 D
+  677,  // MIDI note 39 Eb
+  639,  // MIDI note 40 E
+  603,  // MIDI note 41 F
+  569,  // MIDI note 42 Gb
+  537,  // MIDI note 43 G
+  507,  // MIDI note 44 Ab
+  478,  // MIDI note 45 A
+  452,  // MIDI note 46 Bb
+  426,  // MIDI note 47 B
+  402,  // MIDI note 48 C
+  380,  // MIDI note 49 Db
+  358,  // MIDI note 50 D
+  338,  // MIDI note 51 Eb
+  319,  // MIDI note 52 E
+  301,  // MIDI note 53 F
+  284,  // MIDI note 54 Gb
+  269,  // MIDI note 55 G
+  253,  // MIDI note 56 Ab
+  239,  // MIDI note 57 A
+  226,  // MIDI note 58 Bb
+  213,  // MIDI note 59 B
+  201,  // MIDI note 60 C
+  190,  // MIDI note 61 Db
+  179,  // MIDI note 62 D
+  169,  // MIDI note 63 Eb
+  160,  // MIDI note 64 E
+  151,  // MIDI note 65 F
+  142,  // MIDI note 66 Gb
+  134,  // MIDI note 67 G
+  127,  // MIDI note 68 Ab
+  120,  // MIDI note 69 A
+  113,  // MIDI note 70 Bb
+  107,  // MIDI note 71 B
+  101,  // MIDI note 72 C
+  95,  // MIDI note 73 Db
+  90,  // MIDI note 74 D
+  85,  // MIDI note 75 Eb
+  80,  // MIDI note 76 E
+  75,  // MIDI note 77 F
+  71,  // MIDI note 78 Gb
+  67,  // MIDI note 79 G
+  63,  // MIDI note 80 Ab
+  60,  // MIDI note 81 A
+  56,  // MIDI note 82 Bb
+  53,  // MIDI note 83 B
+  50,  // MIDI note 84 C
+  47,  // MIDI note 85 Db
+  45,  // MIDI note 86 D
+  42,  // MIDI note 87 Eb
+  40,  // MIDI note 88 E
+  38,  // MIDI note 89 F
+  36,  // MIDI note 90 Gb
+  34,  // MIDI note 91 G
+  32,  // MIDI note 92 Ab
+  30,  // MIDI note 93 A
+  28,  // MIDI note 94 Bb
+  27,  // MIDI note 95 B
+  25,  // MIDI note 96 C
+  24,  // MIDI note 97 Db
+  22,  // MIDI note 98 D
+  21,  // MIDI note 99 Eb
+  20,  // MIDI note 100 E
+  19,  // MIDI note 101 F
+  18,  // MIDI note 102 Gb
+  17,  // MIDI note 103 G
+  16,  // MIDI note 104 Ab
+  15,  // MIDI note 105 A
+  14,  // MIDI note 106 Bb
+  13,  // MIDI note 107 B
+  13,  // MIDI note 108 C
+  12,  // MIDI note 109 Db
+  11,  // MIDI note 110 D
+  11,  // MIDI note 111 Eb
+  10,  // MIDI note 112 E
+  9,  // MIDI note 113 F
+  9,  // MIDI note 114 Gb
+  8,  // MIDI note 115 G
+  8,  // MIDI note 116 Ab
+  7,  // MIDI note 117 A
+  7,  // MIDI note 118 Bb
+  7,  // MIDI note 119 B
+  6,  // MIDI note 120 C
+  6,  // MIDI note 121 Db
+  6,  // MIDI note 122 D
+  5,  // MIDI note 123 Eb
+  5,  // MIDI note 124 E
+  5,  // MIDI note 125 F
+  4,  // MIDI note 126 Gb
+  4,  // MIDI note 127 G
 };
 
 //print('const cr_fp_t midiValMap[] = {')

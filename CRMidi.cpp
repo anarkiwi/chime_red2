@@ -128,7 +128,10 @@ MidiChannel *CRMidi::ChannelNoteValid(byte channel, byte note) {
 
 void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
   if (velocity == 0) {
+    // MIDI: note on with velocity 0 is a note off. Must return -- otherwise the
+    // fall-through re-triggers the just-released note via ResetNote() below.
     handleNoteOff(channel, note);
+    return;
   }
   MidiChannel *midiChannel = ChannelNoteValid(channel, note);
   if (midiChannel == NULL) {

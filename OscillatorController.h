@@ -25,13 +25,17 @@ class OscillatorController {
   Oscillator *GetFreeOscillator();
   void ReturnFreeOscillator(Oscillator *oscillator);
   void SetMaxPitch(uint8_t maxPitch);
-  bool SetFreq(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
-  bool SetFreqLazy(Oscillator *oscillator, cr_fp_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
+  bool SetFreq(Oscillator *oscillator, cr_hzinv_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
+  bool SetFreqLazy(Oscillator *oscillator, cr_hzinv_t hzInv, uint8_t newPitch, cr_fp_t velocityScale, int periodOffset);
   bool controlTriggered;
   Lfo *tremoloLfo;
   Lfo *vibratoLfo;
   Lfo *configurableLfo;
   Oscillator *audibleOscillator;
+#ifdef CR_HOST_TEST
+  // Read-only introspection for host MIDI tests (test/host/test_midi.cpp).
+  Oscillator *TestOsc(uint8_t i) { return &_oscillators[i]; }
+#endif
  private:
   void _Reschedule();
   Lfo _lfos[lfoCount];

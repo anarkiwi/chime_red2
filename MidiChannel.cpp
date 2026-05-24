@@ -69,7 +69,7 @@ void MidiChannel::RetuneNotes(OscillatorController *oc) {
   int periodOffset = int(detuneAbs) - int(DEFAULT_DETUNE);
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
-    cr_fp_t hz = BendHz(midiNote, midiTuneCents[detune]);
+    cr_hzinv_t hz = BendHz(midiNote, midiTuneCents[detune]);
     for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
       Oscillator *oscillator = *o;
       if (o == midiNote->oscillators.begin()) {
@@ -77,7 +77,7 @@ void MidiChannel::RetuneNotes(OscillatorController *oc) {
         oc->SetFreqLazy(oscillator, hz, midiNote->pitch, midiNote->velocityScale, periodOffset);
       } else {
         int periodOffset2 = int(detune2Abs) - int(DEFAULT_DETUNE);
-        cr_fp_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
+        cr_hzinv_t hz2 = BendHz(midiNote, midiTuneCents[detune2]);
         oc->SetFreqLazy(oscillator, hz2, midiNote->pitch, midiNote->velocityScale, periodOffset2);
       }
     }
@@ -91,12 +91,12 @@ void MidiChannel::SetBend(int newBend, OscillatorController *oc) {
   RetuneNotes(oc);
 }
 
-cr_fp_t MidiChannel::BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff) {
-  cr_fp_t hz = pitchToHzInv[midiNote->pitch] * detuneCoeff;
+cr_hzinv_t MidiChannel::BendHz(MidiNote *midiNote, cr_fp_t detuneCoeff) {
+  cr_hzinv_t hz = pitchToHzInv[midiNote->pitch] * static_cast<cr_hzinv_t>(detuneCoeff);
   return _pitchBender.BendHz(midiNote, hz);
 }
 
-void MidiChannel::_AddOscillatorToNote(cr_fp_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset) {
+void MidiChannel::_AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset) {
   Oscillator *oscillator;
   oscillator = oc->GetFreeOscillator();
   oc->SetFreq(oscillator, hz, midiNote->pitch, midiNote->velocityScale, periodOffset);
