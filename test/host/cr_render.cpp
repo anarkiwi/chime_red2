@@ -222,23 +222,45 @@ int main(int argc, char **argv) {
   std::vector<float> sig;
   sig.reserve(static_cast<size_t>(totalTicks));
 
+  // Coil breakout model. The coil only breaks out (makes sound) for the part of
+  // a pulse ABOVE breakoutUs -- a pulse <= breakoutUs can't break out, so it is
+  // silent; audible level scales with (pulseWidth - breakoutUs). The firmware's
+  // pulse is breakoutUs + (envelope/velocity-scaled width), so as a note decays
+  // its pulse shrinks toward breakoutUs. Rendering the RAW gate width made that
+  // tail a held floor tone; rendering only the AUDIBLE width lets it fade to
+  // silence, matching the coil. Each pulse emits `fullHigh` whole high samples
+  // plus one fractional sample for the partial tick.
+  const double tickUs = 1e6 / static_cast<double>(masterClockHz);
+  const double breakoutUs = static_cast<double>(crio.breakoutUs);
+
   unsigned long long evIdx = 0;
   unsigned long prevRising = coil.risingEdges;
   unsigned long long pulses = 0;
+  double fullHigh = 0.0; // remaining whole audible ticks for the current pulse
+  float fracHigh = 0.0f; // one trailing partial-tick sample, then 0
   for (unsigned long long t = 0; t < totalTicks; ++t) {
     while (evIdx < timed.size() && timed[evIdx].tick <= t) {
       Dispatch(crmidi, timed[evIdx].ev);
       ++evIdx;
     }
     driver.Tick();
-    // High if the gate is up at end of tick, or a pulse rose+fell within it.
-    const bool edge = coil.risingEdges != prevRising;
-    const bool high = coil.level || edge;
-    if (edge) {
+    if (coil.risingEdges != prevRising) {
       prevRising = coil.risingEdges;
       ++pulses;
+      const double audibleUs = driver.lastPulseUs() - breakoutUs;
+      const double audibleTicks = audibleUs > 0.0 ? audibleUs / tickUs : 0.0;
+      fullHigh = std::floor(audibleTicks);
+      fracHigh = static_cast<float>(audibleTicks - fullHigh);
     }
-    sig.push_back(high ? 1.0f : 0.0f);
+    float s = 0.0f;
+    if (fullHigh > 0.0) {
+      s = 1.0f;
+      fullHigh -= 1.0;
+    } else if (fracHigh > 0.0f) {
+      s = fracHigh;
+      fracHigh = 0.0f;
+    }
+    sig.push_back(s);
   }
   // Flush any events past the render window (e.g. a long tail truncated away).
   while (evIdx < timed.size()) {
