@@ -126,7 +126,81 @@ void MidiChannel::_StampFM(MidiNote *midiNote) {
   }
 }
 
+void MidiChannel::_InitDrum(MidiNote *midiNote, const DrumPreset *preset) {
+  // Load the preset's schedule onto the note and pre-resolve the pitch-glide
+  // endpoints and noise window to master-clock ticks (integer pitchToPeriod[]
+  // reads, like PitchBender::NoiseBounds) so AdvanceDrum stays division-free.
+  midiNote->drumPreset = preset;
+  midiNote->ageMs = 0;
+  midiNote->envelope.Reset(preset->attack, preset->decay, preset->sustain, preset->release);
+  midiNote->drumStartPeriod = pitchToPeriod[preset->startPitch];
+  midiNote->drumEndPeriod = pitchToPeriod[preset->endPitch];
+  uint8_t hi = preset->noisePitch + preset->noiseSpanSemis;
+  if (hi > maxMidiPitch) {
+    hi = maxMidiPitch;
+  }
+  int lo = int(preset->noisePitch) - int(preset->noiseSpanSemis);
+  if (lo < 0) {
+    lo = 0;
+  }
+  // Higher pitch -> smaller period, so pMin is at the high edge; span is positive.
+  midiNote->drumNoisePMin = pitchToPeriod[hi];
+  midiNote->drumNoiseSpan = pitchToPeriod[(uint8_t)lo] - pitchToPeriod[hi];
+}
+
+void MidiChannel::_AddDrumOscillator(uint8_t drumPitch, MidiNote *midiNote, OscillatorController *oc) {
+  Oscillator *oscillator = oc->GetFreeOscillator();
+  if (oscillator == NULL) {
+    return;  // pool exhausted: drop the hit gracefully (no NULL deref).
+  }
+  oc->SetFreq(oscillator, pitchToHzInv[drumPitch], drumPitch, midiNote->velocityScale, 0);
+  midiNote->oscillators.push_back(oscillator);
+}
+
+void MidiChannel::_DrumNoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc) {
+  const DrumPreset *preset = LookupDrumPreset(note);
+  // preset is non-NULL in practice: CRMidi::handleNoteOn silences unmapped
+  // channel-10 notes before a voice is ever allocated. Guard anyway.
+  if (preset == NULL) {
+    return;
+  }
+  midiNote->pitch = note;
+  midiNote->velocityScale = midiValMap[velocity];
+  _InitDrum(midiNote, preset);
+  _AddDrumOscillator(preset->startPitch, midiNote, oc);
+  const bool noiseOn = preset->noiseMs > 0;  // noise drums start their burst now.
+  for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
+    Oscillator *oscillator = *o;
+    oscillator->audible = true;
+    oscillator->envelope = &(midiNote->envelope);
+    oscillator->SetNoiseRange(noiseOn ? midiNote->drumNoisePMin : 0,
+                              noiseOn ? midiNote->drumNoiseSpan : 0);
+  }
+  _midiNotes.push_back(midiNote);
+  _noteMap[note] = midiNote;
+}
+
+void MidiChannel::_RestartDrum(MidiNote *midiNote, const DrumPreset *preset) {
+  // Re-trigger a still-ringing drum on its existing oscillator(s): restart the
+  // schedule (envelope + cached endpoints + ageMs) and re-seed the start period.
+  _InitDrum(midiNote, preset);
+  const bool noiseOn = preset->noiseMs > 0;
+  for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
+    Oscillator *oscillator = *o;
+    oscillator->audible = true;  // it may have decayed to silence but not yet freed.
+    oscillator->envelope = &(midiNote->envelope);
+    oscillator->SetClockPeriodLazy(midiNote->drumStartPeriod);
+    oscillator->SetNoiseRange(noiseOn ? midiNote->drumNoisePMin : 0,
+                              noiseOn ? midiNote->drumNoiseSpan : 0);
+  }
+}
+
 void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc) {
+  if (noiseModulated) {
+    // Channel 10: a built-in drum schedule instead of a tonal voice.
+    _DrumNoteOn(note, velocity, midiNote, oc);
+    return;
+  }
   midiNote->pitch = note;
   midiNote->envelope.Reset(attack, decay, sustain, release);
   midiNote->modEnvelope.Reset(modAttack, modDecay, modSustain, modRelease);
@@ -135,18 +209,14 @@ void MidiChannel::NoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, Osc
   if (detune2 != DEFAULT_DETUNE || detune2Abs != DEFAULT_DETUNE) {
     _AddOscillatorToNote(BendHz(midiNote, midiTuneCents[detune2]), midiNote, oc, int(detune2Abs) - int(DEFAULT_DETUNE));
   }
-  // Stamp the noise window on every voice -- a non-zero span only for the
-  // percussion channel, zero (cleared) otherwise. Doing it unconditionally also
-  // clears any stale window left on an oscillator recycled from the free pool.
-  cr_tick_t noisePMin = 0, noiseSpan = 0;
-  if (noiseModulated) {
-    _pitchBender.NoiseBounds(note, noisePMin, noiseSpan);
-  }
+  // Tonal voice: clear any stale noise window left on an oscillator recycled
+  // from the free pool (a previous channel-10 drum hit may have set one). The
+  // percussion channel never reaches here -- it returns via _DrumNoteOn above.
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->audible = true;
     oscillator->envelope = &(midiNote->envelope);
-    oscillator->SetNoiseRange(noisePMin, noiseSpan);
+    oscillator->SetNoiseRange(0, 0);
   }
   _StampFM(midiNote);
   _midiNotes.push_back(midiNote);
@@ -164,6 +234,14 @@ void MidiChannel::ReleaseNote(uint8_t note) {
 bool MidiChannel::ResetNote(uint8_t note) {
   MidiNote *midiNote = LookupNote(note);
   if (midiNote) {
+    if (noiseModulated) {
+      // Re-hit a still-ringing channel-10 drum: restart its schedule in place.
+      const DrumPreset *preset = LookupDrumPreset(note);
+      if (preset) {
+        _RestartDrum(midiNote, preset);
+      }
+      return true;
+    }
     midiNote->pitch = note;
     midiNote->envelope.Reset(attack, decay, sustain, release);
     midiNote->modEnvelope.Reset(modAttack, modDecay, modSustain, modRelease);

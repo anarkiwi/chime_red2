@@ -73,24 +73,6 @@ class PitchBender {
     }
     return hzInv;
   }
-  // Master-clock period window for pitched noise: [pMin, pMin+span] spans the
-  // bend range either side of the played note (clamped like BendHz), read
-  // straight from the integer pitchToPeriod[] table. Computed once per note on
-  // so the per-pulse noise update is just one random pick inside the window --
-  // no inverse-Hz math, no division. Higher pitch -> smaller period, so pMin is
-  // at note+range and the wider period (pMax) is at note-range.
-  void NoiseBounds(uint8_t pitch, cr_tick_t &pMin, cr_tick_t &span) const {
-    int lo = int(pitch) - int(_pitchBendRange);
-    if (lo < 0) {
-      lo = 0;
-    }
-    int hi = int(pitch) + int(_pitchBendRange);
-    if (hi > _maxPitch) {
-      hi = _maxPitch;
-    }
-    pMin = pitchToPeriod[hi];
-    span = pitchToPeriod[lo] - pMin;
-  }
  private:
   int16_t _bend;
   uint8_t _pitchBendRange;
@@ -144,8 +126,9 @@ class MidiChannel {
     uint8_t modRelease;
     bool lfoRestart;
     // Structural (set once for the percussion channel), not a resettable CC:
-    // when true, note on stamps each voice's oscillator with a noise period
-    // window so Modulate() drives it as pitched noise instead of vibrato.
+    // when true, this channel routes note-ons through the built-in drum kit
+    // (DrumKit.h) -- each note selects a DrumPreset schedule instead of a normal
+    // tonal voice. Unmapped notes are silenced upstream in CRMidi::handleNoteOn.
     bool noiseModulated;
    private:
     // FM CC -> engine conversions, done at control rate (note on / retune), never
@@ -164,6 +147,14 @@ class MidiChannel {
     cr_fp_t _FmDepth() const { return midiValMap[fmIndex] * fmMaxDepth; }
     void _StampFM(MidiNote *midiNote);
     void _AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
+    // Channel-10 drum voices (DrumKit.h). _DrumNoteOn builds a fresh percussion
+    // voice; _RestartDrum re-triggers a still-ringing one; _InitDrum loads the
+    // preset's schedule state (envelope + cached period/noise endpoints) onto the
+    // note; _AddDrumOscillator seeds the single voice at the preset's startPitch.
+    void _DrumNoteOn(uint8_t note, uint8_t velocity, MidiNote *midiNote, OscillatorController *oc);
+    void _RestartDrum(MidiNote *midiNote, const DrumPreset *preset);
+    void _InitDrum(MidiNote *midiNote, const DrumPreset *preset);
+    void _AddDrumOscillator(uint8_t drumPitch, MidiNote *midiNote, OscillatorController *oc);
     MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];

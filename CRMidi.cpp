@@ -8,6 +8,7 @@
 
 
 #include "CRMidi.h"
+#include "DrumKit.h"
 #include "Oscillator.h"
 #include "constants.h"
 
@@ -125,6 +126,11 @@ void CRMidi::handleNoteOn(byte channel, byte note, byte velocity) {
   }
   MidiChannel *midiChannel = ChannelNoteValid(channel, note);
   if (midiChannel == NULL) {
+    return;
+  }
+  if (midiChannel == _percussionChannel && LookupDrumPreset(note) == NULL) {
+    // Channel 10 plays only the built-in drum map (DrumKit.h); an unmapped note
+    // is silent -- bail before allocating a note/oscillator for it.
     return;
   }
   if (midiChannel->ResetNote(note)) {
