@@ -10,7 +10,7 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 * MIDI note 0 - the lowest possible note, is 1Hz, not ~8Hz per the MIDI standard. This is to achieve a percussive "tick" effect.
 * CR2 is velocity sensitive (larger velocity values will play louder). CR2 does not support aftertouch.
 * CR2 has 3 LFOs. One (the "configurable" LFO) is reserved for future use. The other two are for vibrato and tremolo effects. The LFOs globally affect all channels that have their vibrato or tremolo range set (in other words, if two channels have a non-zero vibrato range set, and the vibrato LFO frequency is changed, both channels will be affected).
-* CR2 does not currently use clock messages (they are ignored, but may be used in the future to synchronize LFOs - see below).
+* CR2 can synchronise its LFOs to the MIDI beat clock (24 PPQN). By default the clock is unused and the LFOs free-run at the Hz set by their speed CCs; set a sync division (CC 12/13/14) to lock an LFO's rate to the incoming clock instead. See "MIDI clock sync" below.
 * CR2 does not currently support saving channel parameters or MIDI sysex.
 * CR2 does not use MIDI RPN or NRPN messages (but it is possible to set the pitch bend range - see below).
 
@@ -52,8 +52,39 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 |21|0|FM modulation index|FM amount / brightness (0 is no FM). Takes effect immediately, including on held notes. See FM synthesis below.
 |20|0|FM carrier:modulator ratio, in tenths|0 turns FM off. 14 = ratio 1.4 (a classic bell). Use *non-integer* ratios: integer ratios (10, 20, ...) produce no modulation. Combined with CC19, ratio = CC20/10 + CC19/100. Takes effect immediately, including on held notes.
 |19|0|FM ratio fine adjust, in hundredths|Added to CC20 for sub-tenth ratios (e.g. CC20=10, CC19=8 gives ratio 1.08). Takes effect immediately, including on held notes.
+|14|0|Configurable LFO clock-sync division|0 free-runs at the CC27 Hz; 1-7 lock the LFO to the MIDI clock (1 whole note, 2 half, 3 dotted-quarter, 4 quarter, 5 quarter-triplet, 6 eighth, 7 sixteenth). Global (like the LFO speed CCs). See MIDI clock sync below.
+|13|0|Vibrato LFO clock-sync division|As CC14, for the vibrato LFO (0 free-runs at the CC76 Hz).
+|12|0|Tremolo LFO clock-sync division|As CC14, for the tremolo LFO (0 free-runs at the CC22 Hz).
 |7|127|Volume of all notes on this channel
 |1|0|Vibrato LFO range|Set the level this channel's notes will be affected by the vibrato LFO (0 is no vibrato).
+
+
+## MIDI clock sync
+
+CR2 listens to the MIDI System Real-Time messages: beat clock (0xF8, 24 pulses
+per quarter note) and transport Start (0xFA), Continue (0xFB) and Stop (0xFC).
+They are used to tempo-sync the LFOs, so a tremolo or vibrato can lock to your
+DAW or sequencer instead of free-running.
+
+* By default every LFO free-runs at the Hz set by its speed CC (tremolo CC22,
+  vibrato CC76, configurable CC27) and the clock is ignored.
+* Set a sync division - CC12 (tremolo), CC13 (vibrato), CC14 (configurable) - to
+  a value of 1-7 to lock that LFO's rate to the incoming clock. The LFO then
+  completes exactly one cycle per musical division (e.g. value 4 = one cycle per
+  quarter note), tracking tempo changes automatically. A division of 0 returns
+  the LFO to free-running.
+* The sync is phase-stepped: each clock pulse advances the LFO's phase by a fixed
+  fraction, so there is no tempo measurement, no drift, and the cost per clock is
+  a couple of integer adds (it runs inside the audio interrupt).
+* Transport Start re-aligns the synced LFOs to phase zero (a downbeat), so an LFO
+  hits the same point of its cycle every time the DAW starts. Stop freezes them;
+  Continue resumes without re-aligning.
+* The LFOs are global (shared across channels), so a sync division set on any
+  channel applies to that LFO everywhere, exactly like the LFO speed/shape CCs.
+
+Note: this responds to *live* MIDI clock bytes on the wire. Rendering a Standard
+MIDI File offline (the `cr-render` tool) does not exercise it, because `.mid`
+files store tempo as meta events rather than 0xF8 clock pulses.
 
 
 ## FM synthesis

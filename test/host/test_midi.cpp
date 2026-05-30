@@ -923,6 +923,111 @@ void TestSchedulerCadence() {
         selected[2], selected[1], selected[0]);
 }
 
+// Phase-stepped MIDI beat-clock sync. A clock-synced LFO advances its phase
+// only on incoming MIDI clock pulses (0xF8) -- not the internal free-run tick
+// -- completing exactly one wavetable cycle per musical division, with no
+// drift. Transport start (0xFA) re-aligns phase to the downbeat, stop (0xFC)
+// freezes advancement, continue (0xFB) resumes; an un-synced LFO ignores the
+// clock. CC 14/13/12 select the configurable/vibrato/tremolo sync division
+// (lfoSyncClocks). This is the host-only seam for the feature: SMF rendering
+// (cr_render) can't reach it, because .mid files carry tempo as meta events,
+// not 0xF8 clock bytes.
+void TestClockSyncLfo() {
+  std::printf("[clock] MIDI clock-synced LFO phase-steps one cycle per "
+              "division; transport gates it\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+
+  CHECK(!oc.configurableLfo->TestClockSynced(),
+        "configurable LFO should start free-running");
+  CHECK(!oc.tremoloLfo->TestClockSynced(),
+        "tremolo LFO should start free-running");
+
+  // CC14 = 4 -> quarter note = 24 clocks per LFO cycle (lfoSyncClocks[4]).
+  crmidi.handleControlChange(1, 14, 4);
+  CHECK(oc.configurableLfo->TestClockSynced(),
+        "CC14 should clock-sync the configurable LFO");
+  CHECK(lfoSyncClocks[4] == midiClockPpqn,
+        "test assumes lfoSyncClocks[4] == quarter note (%u clocks), got %u",
+        (unsigned)midiClockPpqn, (unsigned)lfoSyncClocks[4]);
+
+  // Transport start aligns phase to 0, and a synced LFO must ignore the
+  // free-run tick: many master ticks (each oc.Tick() may fire the LFO tick)
+  // move nothing.
+  crmidi.handleStart();
+  CHECK(oc.configurableLfo->TestTablePos() == 0,
+        "start should reset synced LFO phase to 0, got %u",
+        (unsigned)oc.configurableLfo->TestTablePos());
+  for (int i = 0; i < 50 * lfoClockRelHz * 4; ++i) {
+    oc.Tick(); // synced Tick() is a no-op; free-run LFOs would have wrapped.
+  }
+  CHECK(
+      oc.configurableLfo->TestTablePos() == 0,
+      "synced LFO advanced on the free-run tick (phase %u) -- Tick() not gated",
+      (unsigned)oc.configurableLfo->TestTablePos());
+
+  // 24 clock pulses == exactly one table cycle back to 0; quarter/half points
+  // land on clean table fractions (1000-entry table, Bresenham step, no drift).
+  const uint16_t span = maxLfoTable + 1; // 1000
+  for (int i = 0; i < 6; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.configurableLfo->TestTablePos() == span / 4,
+        "6/24 clocks: phase %u != %u (quarter cycle)",
+        (unsigned)oc.configurableLfo->TestTablePos(), (unsigned)(span / 4));
+  for (int i = 0; i < 6; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.configurableLfo->TestTablePos() == span / 2,
+        "12/24 clocks: phase %u != %u (half cycle)",
+        (unsigned)oc.configurableLfo->TestTablePos(), (unsigned)(span / 2));
+  for (int i = 0; i < 12; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.configurableLfo->TestTablePos() == 0,
+        "24/24 clocks: phase %u != 0 (one full cycle)",
+        (unsigned)oc.configurableLfo->TestTablePos());
+
+  // Stop freezes advancement; clock pulses while stopped are ignored.
+  for (int i = 0; i < 5; ++i) {
+    crmidi.handleClock();
+  }
+  const uint16_t frozen = oc.configurableLfo->TestTablePos();
+  CHECK(frozen != 0, "setup: expected non-zero phase before stop");
+  crmidi.handleStop();
+  for (int i = 0; i < 10; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.configurableLfo->TestTablePos() == frozen,
+        "stop did not freeze sync: phase moved %u -> %u", (unsigned)frozen,
+        (unsigned)oc.configurableLfo->TestTablePos());
+
+  // Continue resumes from the frozen phase (no re-alignment).
+  crmidi.handleContinue();
+  for (int i = 0; i < 6; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.configurableLfo->TestTablePos() != frozen,
+        "continue did not resume clock advancement (phase stuck at %u)",
+        (unsigned)frozen);
+
+  // A still-free-running LFO (tremolo, CC12 untouched) ignores the clock
+  // entirely.
+  const uint16_t trem = oc.tremoloLfo->TestTablePos();
+  for (int i = 0; i < 24; ++i) {
+    crmidi.handleClock();
+  }
+  CHECK(oc.tremoloLfo->TestTablePos() == trem,
+        "free-run tremolo LFO advanced on MIDI clock (%u -> %u)",
+        (unsigned)trem, (unsigned)oc.tremoloLfo->TestTablePos());
+
+  // CC14 = 0 returns the configurable LFO to free-run.
+  crmidi.handleControlChange(1, 14, 0);
+  CHECK(!oc.configurableLfo->TestClockSynced(),
+        "CC14=0 should restore free-running");
+}
+
 } // namespace
 
 int main() {
@@ -946,6 +1051,7 @@ int main() {
   TestMessageLatency();
   TestRescheduleWorkBounded();
   TestSchedulerCadence();
+  TestClockSyncLfo();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;

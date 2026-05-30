@@ -20,6 +20,14 @@ class OscillatorController {
   OscillatorController();
   void Tick();
   void RestartLFOs();
+  // MIDI beat-clock / transport. OnMidiClock advances every clock-synced LFO by
+  // one pulse; it runs in the master-ISR context (see CRMidi::handleClock), so it
+  // stays integer-only. Start aligns LFO phase to the downbeat; Stop freezes
+  // advancement; Continue resumes without re-aligning.
+  void OnMidiClock();
+  void OnTransportStart();
+  void OnTransportContinue();
+  void OnTransportStop();
   void ResetAll();
   bool Triggered();
   Oscillator *GetFreeOscillator();
@@ -54,6 +62,10 @@ class OscillatorController {
   cr_tick_t _masterClock;
   cr_slowtick_t _controlClock;
   cr_slowtick_t _lfoClock;
+  // Transport state. Defaults true so a free-running clock (pulses with no
+  // Start/Stop, common from hardware) still drives sync; Stop gates it off until
+  // the next Start/Continue.
+  bool _clockRunning;
   Oscillator *_nextTriggeredOscillator;
   std::stack<Oscillator*> _freeOscillators;
   bool _reschedulePending;

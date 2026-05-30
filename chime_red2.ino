@@ -79,6 +79,25 @@ inline void resetAll() {
   crmidi.ResetAll();
 }
 
+// MIDI System Real-Time: beat clock (0xF8, 24 PPQN) and transport. These fire
+// from MIDI.read() in the master ISR, so the handlers stay thin (LFO phase work
+// is integer-only -- see Lfo::ClockStep). Real-time messages carry no channel.
+inline void handleClock() {
+  crmidi.handleClock();
+}
+
+inline void handleStart() {
+  crmidi.handleStart();
+}
+
+inline void handleContinue() {
+  crmidi.handleContinue();
+}
+
+inline void handleStop() {
+  crmidi.handleStop();
+}
+
 void slipTickISR() {
   oc.Triggered();
   oc.Triggered();
@@ -124,6 +143,10 @@ void enableMidi() {
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.setHandlePitchBend(handlePitchBend);
+  MIDI.setHandleClock(handleClock);
+  MIDI.setHandleStart(handleStart);
+  MIDI.setHandleContinue(handleContinue);
+  MIDI.setHandleStop(handleStop);
   // TODO: put serial port in poll only mode.
   MIDI.begin(MIDI_CHANNEL_OMNI);
   // ThruOff must be after begin, because begin enables thru.
