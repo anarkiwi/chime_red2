@@ -39,10 +39,32 @@ typedef SFixed<16, 15> cr_fp_t;
 // plain notes do. (Plain notes still use the exact pitchToPeriod[] table.)
 typedef SFixed<1, 30> cr_hzinv_t;
 
-// round(clockHz * hzInv) -- the master-clock period for an inverse frequency --
-// without reintroducing a runtime divide. clockHz needs ~16 integer bits, so the
-// product does not fit a 32-bit fixed-point type; compute it in 64-bit integer
-// from hzInv's raw Q30 value and round half up. hzInv is always >= 0 here.
+// The exact master-clock period for an inverse frequency, split into its integer
+// and fractional parts. clockHz needs ~16 integer bits, so the product does not
+// fit a 32-bit fixed-point type; compute it once in 64-bit integer from hzInv's
+// raw Q30 value (no runtime divide). The split is by TRUNCATION (floor), so
+// fracPart is always >= 0 -- the oscillator's delta-sigma fractional-period
+// scheduler carries fracPart forward across pulses to dither the average onto the
+// exact frequency, and an unsigned carry depends on a non-negative remainder.
+// fracPart is in units of 1/2^FractionSize ticks, i.e. Q(FractionSize). hzInv >= 0.
+struct cr_period_t {
+  cr_tick_t intPart;   // floor(period) in whole master ticks
+  uint32_t fracPart;   // sub-tick remainder, Q(cr_hzinv_t::FractionSize), [0, 2^FractionSize)
+};
+
+inline cr_period_t hzInvToPeriod(cr_tick_t clockHz, cr_hzinv_t hzInv) {
+  const int64_t scaled =
+      static_cast<int64_t>(clockHz) * static_cast<int64_t>(hzInv.getInternal());
+  cr_period_t p;
+  p.intPart = static_cast<cr_tick_t>(scaled >> cr_hzinv_t::FractionSize);
+  p.fracPart = static_cast<uint32_t>(
+      scaled & ((static_cast<int64_t>(1) << cr_hzinv_t::FractionSize) - 1));
+  return p;
+}
+
+// round(clockHz * hzInv) -- the period rounded to the nearest whole tick. Still
+// used where a single integer period is wanted (the pitch tables / tests). The
+// fractional scheduler uses hzInvToPeriod above instead.
 inline cr_tick_t hzInvToTicks(cr_tick_t clockHz, cr_hzinv_t hzInv) {
   const int64_t scaled =
       static_cast<int64_t>(clockHz) * static_cast<int64_t>(hzInv.getInternal());

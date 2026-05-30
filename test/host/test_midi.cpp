@@ -567,24 +567,27 @@ void TestEndToEndPinOscillation() {
         static_cast<double>(coil.risingEdges - 1);
     const double pinHz = static_cast<double>(masterClockHz) / avgPeriod;
     const double targetHz = Hz(pitchToHzInv[note]);
-    const double schedHz = static_cast<double>(masterClockHz) /
-                           static_cast<double>(pitchToPeriod[note]);
+    // The oscillator's delta-sigma scheduler dithers the integer period so the
+    // averaged pulse rate is the EXACT pitch, not the single-clock-rounded
+    // masterClockHz/pitchToPeriod[note].
+    const double schedHz = Hz(pitchToHzInv[note]);
     const double errCents = ToCents(pinHz, targetHz);
     std::printf("       %3u  %8.2f  %8.2f   %+7.2f   %lu / %.2f / %lu\n", note,
                 targetHz, pinHz, errCents, coil.minGapTicks, avgPeriod,
                 coil.maxGapTicks);
 
-    // (1) The pin oscillates at the period the oscillator actually scheduled
-    // (pitchToPeriod[note]); averaged over hundreds of pulses the slip jitter
-    // cancels, so the measured rate should be near-exact.
+    // (1) The pin oscillates at the exact scheduled rate; averaged over
+    // hundreds of pulses the per-pulse dither and slip jitter cancel, so the
+    // measured rate is near-exact (the delta-sigma scheduler removes the
+    // single-clock floor).
     CHECK(std::fabs(ToCents(pinHz, schedHz)) <= 5.0,
-          "note %u: pin %.2f Hz != scheduled %.2f Hz (period %lu ticks)", note,
-          pinHz, schedHz, static_cast<unsigned long>(pitchToPeriod[note]));
+          "note %u: pin %.2f Hz != scheduled %.2f Hz", note, pinHz, schedHz);
 
-    // (2) End-to-end pitch accuracy vs the intended note frequency, held to the
-    // single-clock floor (<=5 cents below 250 Hz, <=30 cents up to 2 kHz) --
-    // the same bounds test_frequency uses for the per-note path.
-    const double bound = targetHz <= 250.0 ? 5.0 : 30.0;
+    // (2) End-to-end pitch accuracy vs the intended note frequency. With the
+    // fractional-period scheduler the averaged rate hits the exact pitch, so
+    // this is held tight (<=5 cents) across the whole range rather than to the
+    // old single-clock floor.
+    const double bound = 5.0;
     CHECK(std::fabs(errCents) <= bound,
           "note %u (%.2f Hz): pin off by %.2f cents (bound %.1f)", note,
           targetHz, errCents, bound);
@@ -609,6 +612,14 @@ void TestEndToEndPinOscillation() {
     CHECK(AudibleCount(oc) == 0, "note %u: voice still sounding after note off",
           note);
 
+    // Flush any pulse still in the ISR/CRIO output pipeline at the instant the
+    // voice was freed: the fractional-period scheduler can land the voice's
+    // last scheduled pulse a tick after release, so let it complete before
+    // asserting the pin is idle (a freed voice, audible == false, emits no new
+    // pulses).
+    for (int i = 0; i < 200; ++i) {
+      driver.Tick();
+    }
     coil.Reset();
     for (int i = 0; i < 20000; ++i) {
       driver.Tick();

@@ -35,6 +35,11 @@ class Oscillator {
   void ApplyNoisePeriod(cr_tick_t offset) {
     cr_tick_t period = _noisePMin + offset;
     _clockPeriod = period ? period : 1;
+    // Pitched noise is deliberately not frequency-accurate: each pick is already
+    // an integer period, so bypass the delta-sigma carry (a stale remainder would
+    // bias the random distribution).
+    _periodFracQ30 = 0;
+    _periodRemQ30 = 0;
   }
   // Per-cycle frequency modulation (Chowning-style FM, the bell prototype). When
   // phaseStep is non-zero this oscillator becomes an FM carrier: each carrier
@@ -90,6 +95,13 @@ class Oscillator {
   cr_fp_t _fmDepth;
   uint16_t _fmPhaseStep;
   uint16_t _fmPhase;
+  // Delta-sigma fractional-period scheduler (see Oscillator.cpp SetNextTick): the
+  // exact period is _clockPeriod's truncation plus _periodFracQ30/2^30 ticks.
+  // _periodRemQ30 carries the sub-tick remainder forward across pulses so the
+  // dithered integer periods average to the exact (or FM-modulated) frequency.
+  // Both 0 for an exact-integer period or pitched noise (carry inactive).
+  uint32_t _periodFracQ30;
+  uint32_t _periodRemQ30;
 };
 
 #endif
