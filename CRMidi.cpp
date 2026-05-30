@@ -160,6 +160,22 @@ void CRMidi::handlePitchBend(byte channel, int bend) {
   midiChannel->SetBend(bend, _oc);
 }
 
+void CRMidi::handleClock() {
+  _oc->OnMidiClock();
+}
+
+void CRMidi::handleStart() {
+  _oc->OnTransportStart();
+}
+
+void CRMidi::handleContinue() {
+  _oc->OnTransportContinue();
+}
+
+void CRMidi::handleStop() {
+  _oc->OnTransportStop();
+}
+
 void CRMidi::handleControlChange(byte channel, byte number, byte value) {
   MidiChannel *midiChannel = ChannelEnabled(channel);
   if (midiChannel == NULL) {
@@ -289,6 +305,20 @@ void CRMidi::handleControlChange(byte channel, byte number, byte value) {
     case 1:
       // Set vibrato modulation level of oscillators on this channel.
       setCC(&(midiChannel->coarseModulation), value);
+      break;
+    case 14:
+      // Clock-sync the configurable LFO to the MIDI beat clock. 0 = free-run
+      // (CC27 Hz); 1-7 select a musical division (see lfoSyncClocks). Like the
+      // LFO speed/shape CCs this is global, not per-channel.
+      _oc->configurableLfo->SetClockSync(lfoSyncClocks[std::min(value, lfoSyncMax)]);
+      break;
+    case 13:
+      // Clock-sync the vibrato LFO (0 = free-run / CC76 Hz).
+      _oc->vibratoLfo->SetClockSync(lfoSyncClocks[std::min(value, lfoSyncMax)]);
+      break;
+    case 12:
+      // Clock-sync the tremolo LFO (0 = free-run / CC22 Hz).
+      _oc->tremoloLfo->SetClockSync(lfoSyncClocks[std::min(value, lfoSyncMax)]);
       break;
     default:
       break;

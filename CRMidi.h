@@ -27,6 +27,15 @@ class CRMidi {
     void handlePitchBend(byte channel, int bend);
     void handleControlChange(byte channel, byte number, byte value);
     void handleProgramChange(byte channel, byte number);
+    // MIDI System Real-Time beat-clock / transport (0xF8/0xFA/0xFB/0xFC). The
+    // .ino registers these with MIDI.setHandleClock/Start/Continue/Stop; on the
+    // device they fire from MIDI.read() inside the master ISR, so they stay thin
+    // and integer-only (the work is in OscillatorController). Channel-less by
+    // spec -- they affect the global (shared) LFOs.
+    void handleClock();
+    void handleStart();
+    void handleContinue();
+    void handleStop();
     bool HandleControl();
     cr_fp_t Modulate(Oscillator *audibleOscillator);
     void updateCoeff();

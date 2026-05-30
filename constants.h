@@ -78,6 +78,24 @@ const cr_fp_t fmMaxDepth = cr_fp_t(0.9);
 
 const uint8_t lfoCount = 3;
 
+// MIDI beat clock is 24 pulses per quarter note (PPQN). For tempo-synced LFOs a
+// CC selects a musical division from this table: the value indexes the number of
+// clock pulses in one full LFO cycle. Index 0 == free-run (the SetHz/Tick path).
+// All entries fold to integers at compile time (no runtime FP -- soft-float gate
+// safe). See CRMidi handleControlChange (the sync CCs) and Lfo::SetClockSync.
+const uint16_t midiClockPpqn = 24;
+const uint16_t lfoSyncClocks[] = {
+    0,                       // 0: free-run
+    midiClockPpqn * 4,       // 1: whole note    (1/1)   = 96
+    midiClockPpqn * 2,       // 2: half          (1/2)   = 48
+    (midiClockPpqn * 3) / 2, // 3: dotted quarter (1/4.) = 36
+    midiClockPpqn,           // 4: quarter       (1/4)   = 24
+    (midiClockPpqn * 2) / 3, // 5: quarter triplet (1/4T) = 16
+    midiClockPpqn / 2,       // 6: eighth        (1/8)   = 12
+    midiClockPpqn / 4,       // 7: sixteenth     (1/16)  = 6
+};
+const uint8_t lfoSyncMax = (sizeof(lfoSyncClocks) / sizeof(lfoSyncClocks[0])) - 1;
+
 #include "miditables.h"
 
 #endif

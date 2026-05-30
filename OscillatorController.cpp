@@ -29,6 +29,7 @@ OscillatorController::OscillatorController() {
   _masterClock = 0;
   _controlClock = 0;
   _lfoClock = 0;
+  _clockRunning = true;
   _reschedulePending = false;
   audibleOscillator = NULL;
   controlTriggered = true;
@@ -91,6 +92,26 @@ void OscillatorController::Tick() {
 
 void OscillatorController::RestartLFOs() {
   FOR_ALL_LFO(lfo->Restart());
+}
+
+void OscillatorController::OnMidiClock() {
+  if (!_clockRunning) {
+    return;
+  }
+  FOR_ALL_LFO(lfo->ClockStep());
+}
+
+void OscillatorController::OnTransportStart() {
+  _clockRunning = true;
+  RestartLFOs();  // align synced LFO phase to the transport downbeat.
+}
+
+void OscillatorController::OnTransportContinue() {
+  _clockRunning = true;  // resume where we left off; no phase re-alignment.
+}
+
+void OscillatorController::OnTransportStop() {
+  _clockRunning = false;
 }
 
 void OscillatorController::_Reschedule() {
