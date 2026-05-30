@@ -336,6 +336,15 @@ void AdsrEnvelope::Decay() {
 }
 
 void AdsrEnvelope::Sustain() {
+  // Sustain 0 means "die after decay": idle now instead of holding at level 0, so
+  // the voice is freed and stops firing the coil's breakout-time minimum pulse.
+  // Otherwise a long-held note whose amplitude has already decayed to zero (e.g. a
+  // struck FM bell -- long decay, zero sustain) keeps emitting a faint breakout-
+  // floor tone until note-off. A non-zero sustain holds as before.
+  if (_sustain <= cr_fp_t(0)) {
+    Idle();
+    return;
+  }
   level = _sustain;
   ChangePhase(ENV_SUSTAIN);
 }

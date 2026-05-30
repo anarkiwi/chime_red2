@@ -1028,6 +1028,42 @@ void TestClockSyncLfo() {
         "CC14=0 should restore free-running");
 }
 
+// A note with sustain 0 frees itself when its decay completes, WITHOUT waiting
+// for a note-off -- so a long-held struck sound (e.g. an FM bell) stops cleanly
+// instead of holding the coil's breakout-time minimum pulse as a faint tone. A
+// note with non-zero sustain still holds until note-off.
+void TestSustainZeroFreesAfterDecay() {
+  std::printf("[env] sustain-0 note frees after decay; sustain>0 holds until "
+              "note off\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+
+  // attack 0, short decay, sustain 0 -> rings the decay then dies on its own.
+  crmidi.handleControlChange(1, 73, 0); // attack 0
+  crmidi.handleControlChange(1, 75, 1); // short decay
+  crmidi.handleControlChange(1, 24, 0); // sustain 0
+  crmidi.handleNoteOn(1, 60, 100);
+  CHECK(AudibleCount(oc) == 1, "sustain-0 note should sound, got %d",
+        AudibleCount(oc));
+  RunControl(crmidi, 200); // well past the decay, no note-off sent
+  CHECK(AudibleCount(oc) == 0,
+        "sustain-0 note should free after decay without a note-off, got %d",
+        AudibleCount(oc));
+
+  // Non-zero sustain: a held note must keep sounding until note-off.
+  crmidi.handleControlChange(1, 24, 64); // sustain 64
+  crmidi.handleNoteOn(1, 64, 100);
+  RunControl(crmidi, 200); // no note-off
+  CHECK(AudibleCount(oc) == 1,
+        "sustain>0 held note should keep sounding without a note-off, got %d",
+        AudibleCount(oc));
+  crmidi.handleNoteOff(1, 64);
+  RunControl(crmidi, 40);
+  CHECK(AudibleCount(oc) == 0,
+        "sustain>0 note should free after note-off, got %d", AudibleCount(oc));
+}
+
 } // namespace
 
 int main() {
@@ -1044,6 +1080,7 @@ int main() {
   TestAllNotesOff();
   TestPercussionChannel();
   TestEnvelopeAdsr();
+  TestSustainZeroFreesAfterDecay();
   TestSchedulerAndLfoTick();
   TestModulation();
   TestControlChangeHandling();
