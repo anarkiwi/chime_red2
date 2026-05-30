@@ -49,6 +49,12 @@ public:
   unsigned long maxReadGap() const { return maxReadGap_; }
   unsigned long readCount() const { return readCount_; }
 
+  // Width (microseconds) of the pulse scheduled by the most recent modulateISR.
+  // The SMF->WAV simulator (cr_render.cpp) uses it to model the coil's
+  // breakout: only the part of a pulse ABOVE breakoutUs makes sound, so it
+  // renders the audible width (pulse - breakoutUs), not the raw gate width.
+  double lastPulseUs() const { return lastPulseUs_; }
+
 private:
   // Every oc.Triggered() is one master-clock tick; count them so callers have
   // an exact, monotonic time base for measuring the pin's pulse rate.
@@ -65,6 +71,7 @@ private:
 
   void modulateISR() {
     cr_fp_t p = crmidi_.Modulate(oc_.audibleOscillator);
+    lastPulseUs_ = static_cast<double>(p);
     crio_.schedulePulse(p);
     Triggered();
     state_ = &IsrDriver::nextISR;
@@ -106,6 +113,7 @@ private:
   unsigned long lastReadTick_ = 0;
   unsigned long maxReadGap_ = 0;
   unsigned long readCount_ = 0;
+  double lastPulseUs_ = 0.0;
 };
 
 #endif // CR_HOST_ISR_DRIVER_H
