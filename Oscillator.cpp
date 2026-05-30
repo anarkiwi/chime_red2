@@ -12,8 +12,17 @@
 #include "types.h"
 #include "wavetable.h"
 
+// Delta-sigma fractional-period scheduler fixed-point constants. The fractional
+// period is Q(cr_hzinv_t::FractionSize) = Q30 (same resolution as hzInv), so one
+// whole tick is kFracOneQ30 and half a tick is kFracHalfQ30. The FM bend is
+// computed in cr_fp_t (Q15) and promoted to Q30 by a lossless left shift of
+// kFracToFp bits. All compile-time constants; no runtime float.
+static const uint32_t kFracOneQ30 = uint32_t(1) << cr_hzinv_t::FractionSize;
+static const uint32_t kFracHalfQ30 = uint32_t(1) << (cr_hzinv_t::FractionSize - 1);
+static const uint32_t kFracMaskQ30 = kFracOneQ30 - 1;
+static const int kFracToFp = cr_hzinv_t::FractionSize - cr_fp_t::FractionSize;
 
-Oscillator::Oscillator() : hzInv(0), envelope(0), modEnvelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0), _noisePMin(0), _noiseSpan(0), _fmDepth(0), _fmPhaseStep(0), _fmPhase(0) {
+Oscillator::Oscillator() : hzInv(0), envelope(0), modEnvelope(0), index(0), _periodOffset(0), _hzPulseUsScale(0), _velocityScale(0), _noisePMin(0), _noiseSpan(0), _fmDepth(0), _fmPhaseStep(0), _fmPhase(0), _periodFracQ30(0), _periodRemQ30(0) {
   Reset();
 }
 
@@ -58,17 +67,25 @@ cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
 #ifdef CR_HOST_TEST
   ++testTriggerCount;  // scheduler-cadence characterization test census
 #endif
-  cr_tick_t period = _clockPeriod;
-  // FM carrier: bend the next period by (1 + depth*sin), with the modulator
-  // walking the sine table once per carrier cycle. Gated on an in-range base
-  // period so cr_fp_t(period) cannot overflow SFixed<16,15>, and so a default
-  // voice (phaseStep == 0) keeps the exact original behaviour -- the frequency
-  // tests and scheduler-cadence guard exercise that path unchanged. Period-domain
-  // (division-free); depth stays < 1 (fmMaxDepth) so the period can't reach 0.
-  // _fmPhaseStep is pre-reduced into [0, maxLfoTable] at config time
-  // (MidiChannel::_FmPhaseStep), so the table wrap is a single subtract -- no
-  // parameter-dependent loop in the ISR.
-  if (_fmPhaseStep && period < maxClockPeriod) {
+  // Exact target period for this cycle as Q30 ticks. _clockPeriod is the ROUNDED
+  // period; un-round it to the truncated integer base so the carry only ever adds
+  // the non-negative fraction (never subtracts). For an exact-integer period or
+  // pitched noise (_periodFracQ30 == 0) this leaves base == _clockPeriod.
+  cr_tick_t base = _clockPeriod;
+  if (_periodFracQ30 >= kFracHalfQ30) {
+    base -= 1;
+  }
+  int64_t targetQ30 =
+      (static_cast<int64_t>(base) << cr_hzinv_t::FractionSize) + _periodFracQ30;
+
+  // FM carrier: bend the next period by (1 + depth*sin), the modulator walking the
+  // sine table once per carrier cycle. Applied in the Q30 fractional domain (not
+  // rounded to whole ticks), so even a sub-tick bend survives -- its fraction
+  // accumulates in the carry below instead of rounding to zero, which is what used
+  // to kill FM at high carrier / low index. depth < fmMaxDepth (<1) so the period
+  // can't reach 0. _fmPhaseStep is pre-reduced into [0, maxLfoTable] at config
+  // time (MidiChannel::_FmPhaseStep), so the wrap is one subtract -- no ISR loop.
+  if (_fmPhaseStep && base < maxClockPeriod) {
     _fmPhase += _fmPhaseStep;
     if (_fmPhase > maxLfoTable) {
       _fmPhase -= (maxLfoTable + 1);
@@ -77,16 +94,40 @@ cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
     if (modEnvelope && !modEnvelope->isNull) {
       depth *= modEnvelope->level;
     }
-    cr_fp_t delta = cr_fp_t(static_cast<int>(period)) * depth * SineTable[_fmPhase];
-    int modPeriod = static_cast<int>(period) + roundFixed(delta).getInteger();
-    period = modPeriod > 0 ? static_cast<cr_tick_t>(modPeriod) : 1;
+    cr_fp_t delta = cr_fp_t(static_cast<int>(base)) * depth * SineTable[_fmPhase];
+    // Promote the Q15 bend to Q30 (multiply, not shift, since delta may be
+    // negative) and add it to the fractional target.
+    targetQ30 += static_cast<int64_t>(delta.getInternal()) *
+                 (static_cast<int64_t>(1) << kFracToFp);
+    if (targetQ30 < static_cast<int64_t>(kFracOneQ30)) {
+      targetQ30 = kFracOneQ30;  // clamp to >= 1 tick
+    }
   }
-  if (period < maxClockPeriod) {
-    _updateNextClock(masterClock + period);
+
+  // Delta-sigma carry: emit an integer tick count whose long-term average equals
+  // the exact (fractional / FM-modulated) target, so the realized frequency hits
+  // the exact pitch instead of the single-clock-rounded one. Each pulse still
+  // lands on a whole tick (intPeriod is base or base+1). Commit the accumulated
+  // debt only when the pulse is audible; freeze it otherwise so an inaudible span
+  // (period >= maxClockPeriod) can't build up phantom debt.
+  cr_tick_t intPeriod =
+      static_cast<cr_tick_t>(targetQ30 >> cr_hzinv_t::FractionSize);
+  uint32_t nextRem =
+      _periodRemQ30 + static_cast<uint32_t>(targetQ30 & kFracMaskQ30);
+  if (nextRem >= kFracOneQ30) {
+    nextRem -= kFracOneQ30;
+    ++intPeriod;
+  }
+  if (intPeriod < 1) {
+    intPeriod = 1;
+  }
+  if (intPeriod < maxClockPeriod) {
+    _periodRemQ30 = nextRem;
+    _updateNextClock(masterClock + intPeriod);
   } else {
     _updateNextClock(0);
   }
-  return period;
+  return intPeriod;
 }
 
 void Oscillator::SetMaxPitch(uint8_t maxPitch) {
@@ -118,23 +159,29 @@ bool Oscillator::SetFreqLazy(cr_hzinv_t newHzInv, uint8_t newPitch, cr_fp_t newV
   if (hzChange) {
     hzInv = newHzInv;
     _periodOffset = newPeriodOffset;
-    // A plain note (default detune, no pitch bend) arrives as exactly the table
-    // entry, so use its precomputed optimal period and skip the lossy
-    // masterClockHz * (1/f) fixed-point multiply (1/f truncated to 15 fractional
-    // bits costs up to ~100 cents near 2 kHz). Detuned/bent notes and arbitrary
-    // frequencies (hzInv != table) fall back to the multiply as before. (Within
-    // the playable range each note has a distinct hzInv; above ~note 98 adjacent
-    // semitones share an hzInv, so this dispatch would need to key on pitch too.)
-    if (newPitch <= absMaxMidiPitch && newHzInv == pitchToHzInv[newPitch]) {
-      _clockPeriod = pitchToPeriod[newPitch];
-    } else {
-      _clockPeriod = hzInvToTicks(masterClockHz, hzInv);
+    // Exact fractional period for the delta-sigma scheduler. The old plain-note
+    // fast path (pitchToPeriod[newPitch]) is dropped: with the 30-bit cr_hzinv_t
+    // its rounded integer is bit-identical for plain notes, but it discarded the
+    // sub-tick fraction the carry needs to dither the average onto the exact
+    // pitch. _clockPeriod stays the ROUNDED period (ch10 noise bounds /
+    // TestClockPeriod / the scheduler-cadence test depend on it); SetNextTick
+    // un-rounds it via _periodFracQ30.
+    // _clockPeriod is the ROUNDED period (round-to-nearest tick) via the canonical
+    // helper; _periodFracQ30 is the sub-tick remainder from the same product. The
+    // SetNextTick carry un-rounds _clockPeriod with that fraction, so the two stay
+    // consistent (rounded = floor + (frac >= half)). Detune is whole ticks.
+    long rounded = static_cast<long>(hzInvToTicks(masterClockHz, hzInv)) + _periodOffset;
+    uint32_t fracQ30 = hzInvToPeriod(masterClockHz, hzInv).fracPart;
+    if (rounded < 1) {
+      rounded = 1;
+      fracQ30 = 0;
     }
-    if (_clockPeriod + _periodOffset > 0) {
-      _clockPeriod = _clockPeriod + _periodOffset;
-    } else {
-      _clockPeriod = 1;
-    }
+    _clockPeriod = static_cast<cr_tick_t>(rounded);
+    _periodFracQ30 = fracQ30;
+    // Seed the carry at half a tick so a short/percussive note's first cycle is
+    // not systematically rounded the same way (faster convergence; the one-time
+    // seed does not affect the long-term average).
+    _periodRemQ30 = fracQ30 >> 1;
     _computeHzPulseUsScale(newPitch);
   }
   if (velocityChange) {
