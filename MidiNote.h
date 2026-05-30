@@ -12,6 +12,7 @@
 
 #include "Oscillator.h"
 #include "OscillatorController.h"
+#include "DrumKit.h"
 
 typedef std::deque<Oscillator*> OscillatorDeque;
 
@@ -21,6 +22,11 @@ class MidiNote {
   void ResetOscillators(OscillatorController *oc);
   void Reset();
   void HandleControl();
+  // Channel-10 drum schedule: when drumPreset is non-NULL this note is a one-shot
+  // percussion voice. AdvanceDrum (run at control rate from HandleControl) glides
+  // the oscillator period, gates the noise burst, and idles the envelope at end
+  // of life. Non-perc notes leave drumPreset NULL and pay only one NULL test.
+  void AdvanceDrum();
   uint8_t pitch;
   cr_fp_t ageMs;
   OscillatorDeque oscillators;
@@ -30,6 +36,14 @@ class MidiNote {
   // but never governs voice lifetime -- only the amplitude envelope does that.
   AdsrEnvelope modEnvelope;
   cr_fp_t velocityScale;
+  // Drum-schedule state, set by MidiChannel at note-on / retrigger. The period
+  // endpoints and noise window are pre-resolved to master-clock ticks (via
+  // pitchToPeriod[]) so AdvanceDrum needs no table lookups or division by zero.
+  const DrumPreset *drumPreset;
+  cr_tick_t drumStartPeriod;
+  cr_tick_t drumEndPeriod;
+  cr_tick_t drumNoisePMin;
+  cr_tick_t drumNoiseSpan;
 };
 
 #endif

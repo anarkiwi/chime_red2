@@ -90,7 +90,8 @@ def test_polyphony_and_perc(tmp):
         ev.append((0, bytes([0x90, n, 90])))
     ev.append((PPQ * 2, bytes([0x80, 48, 0])))
     ev += [(0, bytes([0x80, 52, 0])), (0, bytes([0x80, 55, 0]))]
-    ev += [(0, bytes([0x99, 60, 120])), (PPQ // 2, bytes([0x89, 60, 0]))]  # ch10
+    # ch10 GM 38 = snare (a mapped drum; unmapped channel-10 notes are silent).
+    ev += [(0, bytes([0x99, 38, 120])), (PPQ // 2, bytes([0x89, 38, 0]))]
     mid, wav = tmp + "/c.mid", tmp + "/c.wav"
     write_smf(mid, ev)
     render(mid, wav, "--tail", "1.0")

@@ -36,6 +36,12 @@ class Oscillator {
     cr_tick_t period = _noisePMin + offset;
     _clockPeriod = period ? period : 1;
   }
+  // Lazy period write for the channel-10 drum schedules (MidiNote::AdvanceDrum):
+  // a percussion pitch glide rewrites the period directly, like ApplyNoisePeriod.
+  // The next SetNextTick (the scheduler calls it every cycle the voice triggers)
+  // picks it up with no reschedule -- so a control-rate update lands within a
+  // cycle. period 0 is clamped to 1, as elsewhere, so the voice can't stall.
+  void SetClockPeriodLazy(cr_tick_t period) { _clockPeriod = period ? period : 1; }
   // Per-cycle frequency modulation (Chowning-style FM, the bell prototype). When
   // phaseStep is non-zero this oscillator becomes an FM carrier: each carrier
   // cycle (SetNextTick) it walks a modulator phase by phaseStep steps through the

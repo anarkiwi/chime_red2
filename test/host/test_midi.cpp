@@ -41,6 +41,7 @@
 #include "CRDigitalPin.h"
 #include "CRIO.h"
 #include "CRMidi.h"
+#include "DrumKit.h"
 #include "IsrDriver.h" // shared master-ISR replica (also used by cr_render.cpp)
 #include "MidiChannel.h"
 #include "MidiNote.h"
@@ -122,6 +123,27 @@ void RunControl(CRMidi &crmidi, int cycles) {
   for (int i = 0; i < cycles; ++i) {
     crmidi.HandleControl();
   }
+}
+
+// Advance ~`ms` of modeled control time. The control-counter cycle runs one
+// envelope/drum advance (controlClockTickMs of modeled time) per 3
+// HandleControl calls (case 0 envelopes, case 1 expiry, case 2 completes with
+// TestCRIO's pollPots false), so `advances` steps need 3x HandleControl calls.
+// Used by the channel-10 drum-schedule tests.
+void RunMs(CRMidi &crmidi, double ms) {
+  const int advances = static_cast<int>(ms / controlClockTickMs + 0.5);
+  RunControl(crmidi, advances * 3);
+}
+
+// The high (small-period) edge of a preset's noise window -- the deterministic
+// host random() returns the window minimum, so a noise pulse lands exactly
+// here.
+cr_tick_t DrumNoiseWindowMin(const DrumPreset &p) {
+  int hi = int(p.noisePitch) + int(p.noiseSpanSemis);
+  if (hi > maxMidiPitch) {
+    hi = maxMidiPitch;
+  }
+  return pitchToPeriod[hi];
 }
 
 // The master-clock ISR replica (IsrDriver) lives in test/host/IsrDriver.h so
@@ -296,49 +318,36 @@ void TestAllNotesOff() {
         AudibleCount(oc));
 }
 
-// the percussion channel (10) sounds only when CRIO reports it enabled.
+// Channel 10 honours percussionEnabled() and plays only the built-in drum map:
+// a disabled channel and an unmapped note are silent; a mapped GM drum note
+// sounds, seeded at its preset's startPitch.
 void TestPercussionChannel() {
-  std::printf("[perc] channel 10 honours percussionEnabled()\n");
+  std::printf(
+      "[perc] channel 10: disabled/unmapped silent, mapped drum sounds\n");
   OscillatorController oc;
   TestCRIO crio;
   CRMidi crmidi(&oc, &crio);
 
   crio.percEnabled = false;
-  crmidi.handleNoteOn(10, 60, 100);
+  crmidi.handleNoteOn(10, 36, 100); // kick, but percussion disabled
   CHECK(AudibleCount(oc) == 0,
         "percussion disabled: note should be ignored, got %d",
         AudibleCount(oc));
 
   crio.percEnabled = true;
-  const uint8_t note = 60;
-  crmidi.handleNoteOn(10, note, 100);
-  CHECK(AudibleCount(oc) >= 1, "percussion enabled: note should sound, got %d",
+  crmidi.handleNoteOn(10, 60, 100); // note 60 is not in the drum map
+  CHECK(AudibleCount(oc) == 0,
+        "unmapped channel-10 note should be silent, got %d", AudibleCount(oc));
+
+  crmidi.handleNoteOn(10, 36, 100); // GM 36 = kick
+  CHECK(AudibleCount(oc) == 1, "mapped drum note should sound 1 voice, got %d",
         AudibleCount(oc));
-
-  // Channel 10 has its own pitched-noise path (no shared vibrato LFO, no bend
-  // retune): note on stamps the voice with a master-clock period window one
-  // bend range either side of the note, so the voice starts at the note's own
-  // period.
   Oscillator *p = FirstAudible(oc);
-  CHECK(p != NULL && p->TestClockPeriod() == pitchToPeriod[note],
-        "percussion: voice should start at note period %u, got %u",
-        pitchToPeriod[note], p ? p->TestClockPeriod() : 0);
-
-  // Modulate() still yields a sane pulse, and moves the voice to a random
-  // period inside the window [period(note+range), period(note-range)]. The
-  // host's deterministic random() returns the low bound, so the period lands
-  // exactly on the window minimum -- the highest pitch, period(note+range).
-  const uint8_t hi = note + midiPitchBendRange; // +12 semitones
-  const uint8_t lo = note - midiPitchBendRange; // -12 semitones
-  CHECK(p != NULL && crmidi.Modulate(p) > cr_fp_t(0),
-        "percussion: Modulate should return a positive pulse");
-  CHECK(p != NULL && p->TestClockPeriod() == pitchToPeriod[hi],
-        "percussion noise: period %u != window min %u (note + %u semis)",
-        p ? p->TestClockPeriod() : 0, pitchToPeriod[hi], midiPitchBendRange);
-  CHECK(p != NULL && p->TestClockPeriod() >= pitchToPeriod[hi] &&
-            p->TestClockPeriod() <= pitchToPeriod[lo],
-        "percussion noise: period %u outside window [%u, %u]",
-        p ? p->TestClockPeriod() : 0, pitchToPeriod[hi], pitchToPeriod[lo]);
+  const cr_tick_t startPeriod =
+      pitchToPeriod[drumPresets[DRUM_KICK].startPitch];
+  CHECK(p != NULL && p->TestClockPeriod() == startPeriod,
+        "kick should start at its startPitch period %u, got %u",
+        (unsigned)startPeriod, p ? (unsigned)p->TestClockPeriod() : 0);
 }
 
 // Exercise the remaining control-change handlers, the program-change handler,
@@ -1028,6 +1037,121 @@ void TestClockSyncLfo() {
         "CC14=0 should restore free-running");
 }
 
+// Channel-10 drum schedules (DrumKit.h): a note-on runs a built-in,
+// code-defined schedule that emulates a drum by combining a pitch drop, a noise
+// burst and an amplitude ADSR, advanced at control rate by
+// MidiNote::AdvanceDrum. Asserts the observable behaviour: the kick's pitch
+// drops (period rises) over time then holds, the snare bursts noise then hands
+// period authority back to the glide, a re-hit restarts the schedule, and every
+// preset is a one-shot that frees its voice (no oscillator leak).
+void TestDrumSchedule() {
+  std::printf("[drum] channel-10 drum schedules: pitch drop, noise burst, "
+              "one-shot lifetime\n");
+
+  // (1) Kick: period starts at startPitch, rises through the glide (pitch
+  // drop), holds at endPitch, then the one-shot frees its voice past
+  // durationMs.
+  {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    const DrumPreset &kick = drumPresets[DRUM_KICK];
+    crmidi.handleNoteOn(10, 36, 100);
+    Oscillator *k = FirstAudible(oc);
+    const cr_tick_t startP = pitchToPeriod[kick.startPitch];
+    const cr_tick_t endP = pitchToPeriod[kick.endPitch];
+    CHECK(k != NULL && k->TestClockPeriod() == startP,
+          "kick: starts at startPitch period %u, got %u", (unsigned)startP,
+          k ? (unsigned)k->TestClockPeriod() : 0);
+    CHECK(endP > startP, "kick: a downward pitch drop should raise the period");
+
+    RunMs(crmidi, kick.pitchDropMs / 2.0); // mid-glide
+    Oscillator *mid = FirstAudible(oc);
+    CHECK(mid != NULL && mid->TestClockPeriod() > startP &&
+              mid->TestClockPeriod() < endP,
+          "kick: period should be mid-glide (%u), in (%u, %u)",
+          mid ? (unsigned)mid->TestClockPeriod() : 0, (unsigned)startP,
+          (unsigned)endP);
+
+    RunMs(crmidi, kick.pitchDropMs); // past the glide end
+    Oscillator *landed = FirstAudible(oc);
+    CHECK(landed != NULL && landed->TestClockPeriod() == endP,
+          "kick: should hold endPitch period %u after the drop, got %u",
+          (unsigned)endP, landed ? (unsigned)landed->TestClockPeriod() : 0);
+
+    RunMs(crmidi, kick.durationMs); // past the one-shot lifetime
+    CHECK(AudibleCount(oc) == 0,
+          "kick: one-shot should free its voice (got %d still sounding)",
+          AudibleCount(oc));
+  }
+
+  // (2) Snare: a noise window is active at onset (Modulate randomises the
+  // period into the window -> deterministic window minimum), and clears after
+  // noiseMs, handing period authority back to the glide.
+  {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    const DrumPreset &snare = drumPresets[DRUM_SNARE];
+    crmidi.handleNoteOn(10, 38, 100);
+    Oscillator *s = FirstAudible(oc);
+    CHECK(s != NULL && s->noiseSpan() != 0,
+          "snare: should start with an active noise window");
+    CHECK(s != NULL && crmidi.Modulate(s) > cr_fp_t(0),
+          "snare: Modulate should return a positive pulse");
+    CHECK(s != NULL && s->TestClockPeriod() == DrumNoiseWindowMin(snare),
+          "snare: noise pulse period %u != window min %u",
+          s ? (unsigned)s->TestClockPeriod() : 0,
+          (unsigned)DrumNoiseWindowMin(snare));
+
+    RunMs(crmidi, snare.noiseMs + 5.0); // past the burst, still within lifetime
+    Oscillator *s2 = FirstAudible(oc);
+    CHECK(s2 != NULL && s2->noiseSpan() == 0,
+          "snare: noise window should clear after noiseMs");
+  }
+
+  // (3) Re-hit restarts the schedule: a kick glided to its end, hit again,
+  // snaps back to its startPitch period (covers the ResetNote percussion
+  // branch).
+  {
+    OscillatorController oc;
+    TestCRIO crio;
+    CRMidi crmidi(&oc, &crio);
+    const DrumPreset &kick = drumPresets[DRUM_KICK];
+    crmidi.handleNoteOn(10, 36, 100);
+    RunMs(crmidi, kick.pitchDropMs); // glide to the end
+    Oscillator *k = FirstAudible(oc);
+    CHECK(k != NULL && k->TestClockPeriod() == pitchToPeriod[kick.endPitch],
+          "kick: should be at endPitch before the re-hit");
+    crmidi.handleNoteOn(10, 36, 100); // re-trigger
+    Oscillator *k2 = FirstAudible(oc);
+    CHECK(k2 != NULL && k2->TestClockPeriod() == pitchToPeriod[kick.startPitch],
+          "kick re-hit: should reset to startPitch period %u, got %u",
+          (unsigned)pitchToPeriod[kick.startPitch],
+          k2 ? (unsigned)k2->TestClockPeriod() : 0);
+  }
+
+  // (4) Lifetime invariant: every mapped preset sounds, then frees its voice
+  // within its lifetime -- catches a preset whose envelope never idles or whose
+  // pitch is out of the audible (period < maxClockPeriod) range.
+  {
+    const uint8_t drumNotes[] = {36, 38, 42, 46, 45, 39};
+    for (uint8_t note : drumNotes) {
+      OscillatorController oc;
+      TestCRIO crio;
+      CRMidi crmidi(&oc, &crio);
+      crmidi.handleNoteOn(10, note, 100);
+      CHECK(AudibleCount(oc) == 1, "drum note %u should sound, got %d", note,
+            AudibleCount(oc));
+      const DrumPreset *p = LookupDrumPreset(note);
+      RunMs(crmidi, p->durationMs + 50.0);
+      CHECK(AudibleCount(oc) == 0,
+            "drum note %u should free its voice within its lifetime (got %d)",
+            note, AudibleCount(oc));
+    }
+  }
+}
+
 } // namespace
 
 int main() {
@@ -1052,6 +1176,7 @@ int main() {
   TestRescheduleWorkBounded();
   TestSchedulerCadence();
   TestClockSyncLfo();
+  TestDrumSchedule();
   std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "PASS" : "FAIL",
               g_failures, g_failures == 1 ? "" : "s");
   return g_failures == 0 ? 0 : 1;
