@@ -16,7 +16,7 @@ CR2 is controllable with MIDI, by a DAW such as Ableton Live or a standalone con
 
 ## Best practices
 
-* If your DAW or controller can send program changes, then send a program change to reset all CC values and pitchbend to defaults. (Most program numbers only reset; numbers 14, 38, 39 and 40 reset and then load a built-in FM preset - see FM synthesis below.)
+* If your DAW or controller can send program changes, then send a program change to reset all CC values and pitchbend to defaults. (Most program numbers only reset; number 14 resets and then loads a built-in FM preset - see FM synthesis below.)
 * Sending MIDI CC 30 (the value does not matter) will do the same reset as a program change,
 * If you don't reset CC values and pitchbends via one of the above methods, then when automating use of the MIDI CC messages specified below or pitchbends, ensure that you explicitly automate starting, and returning the CC value to its default (ie. in Ableton, the automation line for the CC value should be set back to default at the end of a MIDI clip). This ensures that the CC value will always be consistent whenever the DAW or CR2 are restarted.
 * Setting ADSR envelope values should be done before sending a MIDI note. Sending ADSR values while a note is playing will have no effect.
@@ -120,12 +120,6 @@ can then tweak it with the CCs above, or build your own from scratch.
 | Program | Preset | Character
 | --- | --- | ---
 |14|Bell|Ratio 1.4, long ring on both amplitude and brightness - a struck FM bell.
-|38|Pluck bass|Bright FM attack transient over a cleaner sustained body.
-|39|Growl bass|Sustained modulation - an animated, buzzy bass.
-|40|Fat bass|Near-unity ratio (1.08) - sidebands cluster tightly for a thick bass.
-
-The bass presets are inharmonic "coil-FM" character voices (see the note above), not
-clean harmonic FM basses.
 
 ### Example (a bell)
 

@@ -124,20 +124,20 @@ def test_mod_envelope_decays_brightness(tmp):
         )
 
 
-def test_fm_bass_and_preset(tmp):
-    print("[fm] fine-ratio bass + program-change preset path")
-    rate_f, s_f = render_fixture("fm_bass_fat", tmp)
-    rate_p, s_p = render_fixture("fm_bass_preset", tmp)
-    cov_f, hz_f = interval_stats(s_f, rate_f, 0.15, 0.5)
-    cov_p, _ = interval_stats(s_p, rate_p, 0.15, 0.5)
-    print("  fat bass (CC, ratio 1.08): CoV %.4f at %.0f Hz" % (cov_f, hz_f))
-    print("  fat bass (Program Change 40): CoV %.4f" % cov_p)
-    if not cov_f > 0.05:
-        fail("fine-ratio fat bass did not modulate (CoV %.4f)" % cov_f)
-    if not cov_p > 0.05:
-        fail("program-change preset produced no FM (CoV %.4f)" % cov_p)
-    if abs(cov_p - cov_f) > 0.03:
-        fail("preset voice %.4f != CC-driven voice %.4f" % (cov_p, cov_f))
+def test_bell_preset(tmp):
+    print("[fm] program-change bell preset reproduces the CC-driven bell")
+    rate_cc, s_cc = render_fixture("fm_bell_c5", tmp)
+    rate_pc, s_pc = render_fixture("fm_bell_preset", tmp)
+    cov_cc, hz_cc = interval_stats(s_cc, rate_cc, 0.1, 0.5)
+    cov_pc, _ = interval_stats(s_pc, rate_pc, 0.1, 0.5)
+    print("  bell (CC set)           : CoV %.4f at %.0f Hz" % (cov_cc, hz_cc))
+    print("  bell (Program Change 14): CoV %.4f" % cov_pc)
+    if not cov_cc > 0.05:
+        fail("CC-driven bell did not modulate (CoV %.4f)" % cov_cc)
+    if not cov_pc > 0.05:
+        fail("program-change preset produced no FM (CoV %.4f)" % cov_pc)
+    if abs(cov_pc - cov_cc) > 0.03:
+        fail("preset voice %.4f != CC-driven voice %.4f" % (cov_pc, cov_cc))
 
 
 def main():
@@ -145,7 +145,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         test_fm_modulates_period(tmp)
         test_mod_envelope_decays_brightness(tmp)
-        test_fm_bass_and_preset(tmp)
+        test_bell_preset(tmp)
     print(
         "\n%s (%d failure%s)"
         % ("PASS" if failures == 0 else "FAIL", failures, "" if failures == 1 else "s")
