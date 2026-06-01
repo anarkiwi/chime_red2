@@ -31,7 +31,7 @@ profiles:
       - platform: arduino:sam (1.6.12)
     libraries:
       - ArduinoSTL (1.3.3)
-      - DueTimer (1.4.8)
+      - DueTimer (1.4.7)
       - FixedPoints (1.1.2)
       - MIDI Library (5.0.2)
 
@@ -41,10 +41,11 @@ profiles:
     notes: SparkFun SAMD21 Dev Breakout (Atmel SAMD21)
     fqbn: SparkFun:samd:samd21_dev
     platforms:
-      # SparkFun's core depends on Arduino's SAMD core, so both are listed.
+      # SparkFun's SAMD core is self-contained (the original build installed
+      # only this, not arduino:samd), and its board index URL is embedded here
+      # so no Preferences URL is needed.
       - platform: SparkFun:samd (1.8.3)
         platform_index_url: https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
-      - platform: arduino:samd (1.8.1)
     libraries:
       - ArduinoSTL (1.3.3)
       - FixedPoints (1.1.2)
