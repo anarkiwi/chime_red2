@@ -427,7 +427,10 @@ void TestEnvelopeAdsr() {
   CHECK(AudibleCount(oc) == 1, "env: held note should still sound");
 
   crmidi.handleNoteOff(1, 60);
-  RunControl(crmidi, 40); // release -> idle -> expire
+  // release -> idle -> expire. The exponential release rings down over
+  // envRingScale * the CC release time, so allow enough control cycles for even
+  // a short release (CC 1) to reach the floor and free the voice.
+  RunControl(crmidi, 200);
   CHECK(AudibleCount(oc) == 0, "env: released note should fall silent, got %d",
         AudibleCount(oc));
 
