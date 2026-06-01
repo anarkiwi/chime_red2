@@ -37,10 +37,12 @@ import sys
 import tempfile
 import wave
 
-from smf_write import PPQ, mtrk, note_off, note_on, tempo, write_smf
+from smf_write import PPQ, cc, mtrk, note_off, note_on, tempo, write_smf
 
 CR_RENDER = os.environ.get("CR_RENDER", "cr-render")
 TEMPO = 500000  # us/qn -> 120 bpm, so a quarter note (PPQ ticks) is 0.5 s
+# ADSR control-change numbers (mirror CRMidi::handleControlChange).
+CC_ATTACK, CC_DECAY, CC_SUSTAIN, CC_RELEASE = 73, 75, 24, 72
 failures = 0
 
 
@@ -109,15 +111,26 @@ CHORD_SUM_HZ = sum(midi_hz(n) for n in CHORD_PITCHES)
 VEL_PITCH = 72  # C5
 VEL_STEPS = ((25, 2.0), (75, 3.0), (125, 4.0))  # (velocity, onset seconds)
 
+# Envelope phases, all on ch 3 / one fixed pitch / full velocity, so the gate
+# DUTY tracks the amplitude envelope alone. Each sets its own ADSR then strikes.
+ENV_PITCH = 72  # C5
+ENV_ATTACK_ON = 6.0  # slow attack (CC50 ~146ms), full sustain, held -> ramp+hold
+ENV_DECAY_ON = 8.0  # instant attack, decay CC40, sustain 64, held -> decay+hold
+ENV_RING_ON = 10.0  # instant attack, decay CC70, sustain 0, NO note-off -> rings
+# down exponentially and frees itself (the struck-bell case + the sustain-0 fix).
+
 
 def build_smf(path):
-    """Two-track SMF exercising both behaviours.
+    """Three-track SMF exercising polyphony, velocity, and the ADSR envelope.
 
     Phase A (0.0-1.6 s): ch 1 plays a C4/E4/G4 triad at velocity 110 while ch 2
     plays a C5/E5/G5 triad at velocity 50 -- six voices on two channels at two
     velocity levels, all sounding at once (the polyphony case).
     Phase B (2.0-4.7 s): ch 2 strikes one fixed pitch (C5) three times at rising
     velocity (25, 75, 125) in separate ~0.7 s windows (the velocity case).
+    Phase C (6.0-~11 s, ch 3): one pitch run through the envelope phases --
+    a slow attack ramp, a decay to a held sustain, and a sustain-0 exponential
+    ring-down with no note-off (must fade to silence and free itself).
     """
     a = [(0, tempo(TEMPO))]
     for n in CH1_TRIAD:
@@ -136,12 +149,35 @@ def build_smf(path):
         b.append((ticks(tsec), note_on(2, VEL_PITCH, vel)))
         b.append((ticks(tsec + 0.7), note_off(2, VEL_PITCH)))
 
+    c = []
+
+    def adsr(tsec, atk, dec, sus, rel):
+        for num, val in (
+            (CC_ATTACK, atk),
+            (CC_DECAY, dec),
+            (CC_SUSTAIN, sus),
+            (CC_RELEASE, rel),
+        ):
+            c.append((ticks(tsec), cc(3, num, val)))
+
+    # Attack ramp: slow attack, full sustain; held 1.2 s then released.
+    adsr(ENV_ATTACK_ON, 50, 0, 127, 20)
+    c.append((ticks(ENV_ATTACK_ON), note_on(3, ENV_PITCH, 127)))
+    c.append((ticks(ENV_ATTACK_ON + 1.2), note_off(3, ENV_PITCH)))
+    # Decay to a held sustain: instant attack, decay CC40, sustain 64; held 1.2 s.
+    adsr(ENV_DECAY_ON, 0, 40, 64, 20)
+    c.append((ticks(ENV_DECAY_ON), note_on(3, ENV_PITCH, 127)))
+    c.append((ticks(ENV_DECAY_ON + 1.2), note_off(3, ENV_PITCH)))
+    # Sustain-0 exponential ring-down, NO note-off: must fall to silence + free.
+    adsr(ENV_RING_ON, 0, 70, 0, 20)
+    c.append((ticks(ENV_RING_ON), note_on(3, ENV_PITCH, 127)))
+
     write_smf(
         path,
         None,
         fmt=1,
-        ntrks=2,
-        tracks=[_events_to_track(a), _events_to_track(b)],
+        ntrks=3,
+        tracks=[_events_to_track(a), _events_to_track(b), _events_to_track(c)],
     )
 
 
@@ -199,6 +235,68 @@ def test_velocity(samples, rate):
             )
 
 
+def test_envelope(samples, rate):
+    print("[poly] ADSR envelope shapes the gate duty over the note")
+    # 1) Attack ramps up then holds (full sustain). Strike window is lower than
+    # the plateau; the plateau is steady.
+    atk_strike = duty(samples, rate, ENV_ATTACK_ON + 0.0, ENV_ATTACK_ON + 0.05)
+    atk_peak = duty(samples, rate, ENV_ATTACK_ON + 0.15, ENV_ATTACK_ON + 0.20)
+    atk_hold = duty(samples, rate, ENV_ATTACK_ON + 0.6, ENV_ATTACK_ON + 1.0)
+    print(
+        "  attack: strike %.5f -> peak %.5f, hold %.5f"
+        % (atk_strike, atk_peak, atk_hold)
+    )
+    if not atk_peak > 2.0 * atk_strike:
+        fail("attack did not ramp up (strike %.5f, peak %.5f)" % (atk_strike, atk_peak))
+    if not abs(atk_hold - atk_peak) < 0.2 * atk_peak:
+        fail("attack plateau not held (peak %.5f, hold %.5f)" % (atk_peak, atk_hold))
+
+    # 2) Decay falls from the strike to a held sustain ~ (64/127) of full level.
+    dec_strike = duty(samples, rate, ENV_DECAY_ON + 0.0, ENV_DECAY_ON + 0.05)
+    dec_hold = duty(samples, rate, ENV_DECAY_ON + 0.7, ENV_DECAY_ON + 1.1)
+    print("  decay:  strike %.5f -> sustain-hold %.5f" % (dec_strike, dec_hold))
+    if not dec_hold < 0.8 * dec_strike:
+        fail(
+            "decay did not fall to sustain (strike %.5f, hold %.5f)"
+            % (dec_strike, dec_hold)
+        )
+    if not dec_hold > 0.1 * dec_strike:
+        fail(
+            "sustain-64 collapsed to silence (strike %.5f, hold %.5f)"
+            % (dec_strike, dec_hold)
+        )
+    # The sustain (64) hold should sit below the full-sustain (127) attack plateau.
+    if not dec_hold < atk_hold:
+        fail(
+            "sustain-64 hold %.5f not below full-sustain hold %.5f"
+            % (dec_hold, atk_hold)
+        )
+
+    # 3) Sustain-0, no note-off: exponential ring-down to silence that frees the
+    # voice. Duty must decrease across successive windows and reach ~0, with the
+    # decline being exponential (near-constant window-to-window RATIO, not a
+    # constant linear step).
+    win = [
+        duty(samples, rate, ENV_RING_ON + a, ENV_RING_ON + a + 0.2)
+        for a in (0.05, 0.35, 0.65, 0.95)
+    ]
+    tail = duty(samples, rate, ENV_RING_ON + 1.8, ENV_RING_ON + 2.3)
+    print("  ring:   %s -> tail %.5f" % (" ".join("%.5f" % d for d in win), tail))
+    if not all(win[i] > win[i + 1] for i in range(len(win) - 1)):
+        fail("sustain-0 ring did not decrease monotonically: %s" % win)
+    if not tail < 0.02 * win[0]:
+        fail(
+            "sustain-0 note did not ring down to silence (start %.5f, tail %.5f)"
+            % (win[0], tail)
+        )
+    # Exponential: consecutive ratios stay similar (linear decay would make the
+    # ratios climb toward zero as the step becomes a larger fraction of the level).
+    ratios = [win[i + 1] / win[i] for i in range(len(win) - 1) if win[i] > 0]
+    print("    window ratios %s" % (" ".join("%.2f" % r for r in ratios)))
+    if len(ratios) >= 2 and not max(ratios) - min(ratios) < 0.25:
+        fail("ring-down not exponential (window ratios vary too much: %s)" % ratios)
+
+
 def main():
     print("chime_red2 host polyphony + velocity integration test")
     keep = os.environ.get("CR_POLY_WAV")  # optional: persist the WAV for listening
@@ -207,14 +305,17 @@ def main():
         raw_wav = os.path.join(tmp, "poly_raw.wav")
         build_smf(mid)
         # Raw unipolar gate for measurement (edge rate / duty are gate properties).
+        # The tail must outlast the sustain-0 ring-down (last note-on at 10 s, no
+        # note-off) so the test can see it fall to silence.
         subprocess.run(
-            [CR_RENDER, mid, raw_wav, "--raw", "--no-normalize", "--tail", "0.3"],
+            [CR_RENDER, mid, raw_wav, "--raw", "--no-normalize", "--tail", "3"],
             check=True,
             stderr=subprocess.DEVNULL,
         )
         rate, samples = read_wav(raw_wav)
         test_polyphony(samples, rate)
         test_velocity(samples, rate)
+        test_envelope(samples, rate)
         if keep:
             # A normalised, DC-blocked render is the nice-to-listen-to version.
             subprocess.run(
