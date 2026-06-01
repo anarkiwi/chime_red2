@@ -437,7 +437,7 @@ void TestEnvelopeAdsr() {
   crmidi.handleControlChange(1, 75, 1); // decay > 0
   crmidi.handleNoteOn(1, 62, 100);
   Oscillator *d = FirstAudible(oc);
-  CHECK(d != NULL && d->envelope->level == cr_fp_t(1.0),
+  CHECK(d != NULL && d->envelope->level == cr_env_t(1),
         "env: zero-attack note should start decay at full level, got %.3f",
         d ? static_cast<double>(d->envelope->level) : -1.0);
   RunControl(crmidi, 200);

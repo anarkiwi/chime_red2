@@ -339,14 +339,16 @@ void CRMidi::handleProgramChange(byte channel, byte number) {
     case 14:
       // FM bell preset (also fully reachable via the CC set above): ratio 1.4
       // carrier:modulator, instant attack + long ring on both amplitude and a
-      // zero-sustain modulation-index envelope, so brightness and loudness fade
-      // together like a struck bell.
+      // zero-sustain modulation-index envelope. The modulation-index decay
+      // matches the amplitude decay so brightness and loudness fade *together*
+      // over the whole ring -- otherwise the FM character dies well before the
+      // note does, leaving a plain (un-modulated) tone for the rest of the decay.
       midiChannel->fmRatio = 14;
       midiChannel->fmIndex = 100;
       midiChannel->decay = 124;
       midiChannel->sustain = 0;
       midiChannel->release = 40;
-      midiChannel->modDecay = 110;
+      midiChannel->modDecay = 124;
       midiChannel->modSustain = 0;
       break;
     default:
@@ -403,7 +405,7 @@ inline cr_fp_t CRMidi::ModulateChain(cr_fp_t p, Oscillator *audibleOscillator, M
     p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo->Level());
   }
   if (!audibleOscillator->envelope->isNull) {
-    p *= audibleOscillator->envelope->level;
+    p *= cr_fp_t(audibleOscillator->envelope->level);
   }
   if (midiChannel->volume != maxMidiVal) {
     p *= midiValMap[midiChannel->volume];

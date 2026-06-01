@@ -155,7 +155,7 @@ const cr_fp_t AdsrCurveMs[] = {
   4096.000000, // 127
 };
 
-const cr_fp_t AdsrCurveLevelStep[] = {
+const cr_env_t AdsrCurveLevelStep[] = {
   1.0 / (0.000000 / controlClockTickMs), // 0
   1.0 / (1.000000 / controlClockTickMs), // 1
   1.0 / (2.000000 / controlClockTickMs), // 2
@@ -296,7 +296,7 @@ void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t
   _attackInc = AdsrCurveLevelStep[attack];
   _decay = AdsrCurveMs[decay];
   _decayDec = 0;
-  _sustain = midiValMap[sustain];
+  _sustain = cr_env_t(midiValMap[sustain]);
   _release = AdsrCurveMs[release];
   _releaseDec = AdsrCurveLevelStep[release];
   if (attack == 0 && decay == 0 && sustain == maxMidiVal && release == 0) {
@@ -308,7 +308,7 @@ void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t
       // controlClockTickMs/AdsrCurveMs[decay]), so reuse that precomputed
       // reciprocal -- like _attackInc/_releaseDec above -- instead of a runtime
       // divide (and the double-literal arithmetic) on the no-FPU target.
-      _decayDec = (cr_fp_t(1) - _sustain) * AdsrCurveLevelStep[decay];
+      _decayDec = (cr_env_t(1) - _sustain) * AdsrCurveLevelStep[decay];
     }
   }
   level = 0;
@@ -331,7 +331,7 @@ bool AdsrEnvelope::IsIdle() {
 }
 
 void AdsrEnvelope::Decay() {
-  level = 1.0;
+  level = cr_env_t(1);
   ChangePhase(ENV_DECAY);
 }
 
@@ -341,7 +341,7 @@ void AdsrEnvelope::Sustain() {
   // Otherwise a long-held note whose amplitude has already decayed to zero (e.g. a
   // struck FM bell -- long decay, zero sustain) keeps emitting a faint breakout-
   // floor tone until note-off. A non-zero sustain holds as before.
-  if (_sustain <= cr_fp_t(0)) {
+  if (_sustain <= cr_env_t(0)) {
     Idle();
     return;
   }
@@ -351,7 +351,7 @@ void AdsrEnvelope::Sustain() {
 
 void AdsrEnvelope::Idle() {
   if (_phase < ENV_IDLE) {
-    level = 0;
+    level = cr_env_t(0);
     ChangePhase(ENV_IDLE);
   }
 }
@@ -371,7 +371,7 @@ void AdsrEnvelope::HandleControl() {
     case ENV_ATTACK: {
         level += _attackInc;
         _ageMs += controlClockTickMsFp;
-        if (level >= 1.0 || _ageMs > _attack) {
+        if (level >= cr_env_t(1) || _ageMs > _attack) {
           Decay();
         }
       }
@@ -387,7 +387,7 @@ void AdsrEnvelope::HandleControl() {
     case ENV_RELEASE: {
         level -= _releaseDec;
         _ageMs += controlClockTickMsFp;
-        if (level <= 0 || _ageMs > _release) {
+        if (level <= cr_env_t(0) || _ageMs > _release) {
           Idle();
         }
       }

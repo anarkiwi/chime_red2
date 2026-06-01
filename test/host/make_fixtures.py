@@ -47,13 +47,16 @@ def fm_setup(
     amp_sustain=0,
     amp_release=40,
     mod_attack=0,
-    mod_decay=110,
+    mod_decay=124,
     mod_sustain=0,
     mod_release=0,
 ):
     """Tick-0 CC block configuring a channel for FM (bell defaults; override the
-    envelopes/ratio for bass). CC19 (fine ratio) is emitted only when non-zero, so
-    the bell fixtures' bytes are unaffected by adding the fine control."""
+    envelopes/ratio for bass). The default mod (brightness) decay matches the
+    amp decay so the FM character rings the whole note instead of dying early
+    into a plain tone -- mirrors program-change preset 14. CC19 (fine ratio) is
+    emitted only when non-zero, so the bell fixtures' bytes are unaffected by
+    adding the fine control."""
     events = [
         (0, tempo(TEMPO)),
         (0, cc(ch, CC_AMP_ATTACK, amp_attack)),

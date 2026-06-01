@@ -30,6 +30,17 @@ typedef uint32_t cr_tick_t;
 typedef uint32_t cr_slowtick_t;
 typedef SFixed<16, 15> cr_fp_t;
 
+// Envelope level and its per-control-tick increments, all in [0, 1]. Like
+// cr_hzinv_t, this reallocates cr_fp_t's wasted 16 integer bits as fraction:
+// same 32-bit storage, but 30 fractional bits instead of 15. A long decay/
+// release steps by 1e-5..5e-5 per tick; in cr_fp_t's 15-bit fraction (LSB
+// 3.05e-5) such a step truncated to ~1 LSB, a ~40% error, so the level never
+// actually reached 0 over the decay and the note snapped off (Idle) at ~0.4
+// instead of fading out. 30 fractional bits resolve those steps exactly, so the
+// envelope rings down smoothly to silence. Converted to cr_fp_t at the two
+// consumers (the pulse-width and FM-depth multiplies).
+typedef SFixed<1, 30> cr_env_t;
+
 // Inverse frequency (1/Hz). Always <= ~1.06 (note 0 is 1 Hz, plus detune
 // headroom), so the 16 integer bits cr_fp_t spends are wasted here -- they buy
 // nothing and cost precision. cr_hzinv_t reallocates them: same 32-bit storage
