@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Host integration test: polyphony + velocity dynamics through the real synth.
+"""Host integration test: synth features through the real render path.
 
 Builds a multi-track SMF in memory (like test_render.py -- no tracked fixture),
-renders it with `cr-render`, and asserts on the raw coil-gate WAV. Two things are
-checked, both auto-verifiable from the gate signal alone:
+renders it with `cr-render`, and asserts on the raw coil-gate WAV. Four feature
+areas are checked, all auto-verifiable from the gate signal alone (edge rate =
+pitch, duty = amplitude):
 
   1. POLYPHONY -- the synth sounds chords on multiple channels at once, it is NOT
      mono-priority. Two C-major triads (six voices) struck together on channels 1
@@ -20,13 +21,23 @@ checked, both auto-verifiable from the gate signal alone:
      while the edge rate stays put. Three velocity levels are struck on one held
      pitch; the two simultaneous triads above are also at different velocities.
 
+  3. ENVELOPE -- the ADSR shapes the duty over a note: a slow attack ramps up then
+     holds; a decay falls to a held sustain (below the full-sustain plateau); and
+     a sustain-0 note rings down exponentially (near-constant window-to-window
+     duty ratio) to silence and frees itself.
+
+  4. LFOs -- vibrato (CC1 depth, CC76 Hz) wobbles the PITCH, so the edge rate
+     swings; tremolo (CC92 depth, CC22 Hz) wobbles the AMPLITUDE, so the duty
+     swings while the edge rate stays at the steady-note floor.
+
 Empirically grounded (probe, master clock 52631 Hz): the two triads (C4 E4 G4 +
 C5 E5 G5) -> ~1715 Hz edge rate (highest-only would be 784 Hz, ideal six-note sum
-2950 Hz); C5 at vel 25/75/125 -> duty 0.0081 / 0.0244 / 0.0406 (~1:3:5), edge rate
-522 Hz throughout.
+2950 Hz); C5 at vel 25/75/125 -> duty 0.0081 / 0.0244 / 0.0406 (~1:3:5); sustain-0
+ring duty ratio ~0.20 per window; vibrato edge-rate swing ~27% vs ~4% steady;
+tremolo duty swing ~117% with edge rate flat at ~4%.
 
 Runs from coverage.sh (guarded on cr-render existing), exits non-zero on failure.
-Also writes the rendered WAV to $CR_POLY_WAV if set, for listening.
+Also writes the rendered WAV to $CR_FEATURES_WAV if set, for listening.
 """
 
 import math
@@ -43,6 +54,9 @@ CR_RENDER = os.environ.get("CR_RENDER", "cr-render")
 TEMPO = 500000  # us/qn -> 120 bpm, so a quarter note (PPQ ticks) is 0.5 s
 # ADSR control-change numbers (mirror CRMidi::handleControlChange).
 CC_ATTACK, CC_DECAY, CC_SUSTAIN, CC_RELEASE = 73, 75, 24, 72
+# Vibrato (pitch LFO) and tremolo (amplitude LFO): per-channel depth + global Hz.
+CC_VIB_RANGE, CC_VIB_HZ = 1, 76
+CC_TREM_RANGE, CC_TREM_HZ = 92, 22
 failures = 0
 
 
@@ -119,6 +133,16 @@ ENV_DECAY_ON = 8.0  # instant attack, decay CC40, sustain 64, held -> decay+hold
 ENV_RING_ON = 10.0  # instant attack, decay CC70, sustain 0, NO note-off -> rings
 # down exponentially and frees itself (the struck-bell case + the sustain-0 fix).
 
+# LFO phases on ch 4 / one held pitch, steady amplitude (no decay), so the only
+# variation over the note is the LFO. Vibrato (CC1 depth, CC76 ~5 Hz) wobbles the
+# PITCH -> the pulse edge rate swings. Tremolo (CC92 depth, CC22 ~5 Hz) wobbles
+# the pulse WIDTH -> the gate duty swings while the edge rate stays put.
+LFO_PITCH = 72  # C5
+LFO_HZ_CC = 64  # ~5 Hz (0-127 maps to 0-10 Hz)
+VIB_ON = 12.5  # vibrato note onset (after the envelope phases have freed)
+TREM_ON = 15.0  # tremolo note onset
+LFO_HOLD = 2.0  # hold each ~2 s so several LFO cycles land in the window
+
 
 def build_smf(path):
     """Three-track SMF exercising polyphony, velocity, and the ADSR envelope.
@@ -172,12 +196,45 @@ def build_smf(path):
     adsr(ENV_RING_ON, 0, 70, 0, 20)
     c.append((ticks(ENV_RING_ON), note_on(3, ENV_PITCH, 127)))
 
+    # Track D (ch 4): steady-amplitude held notes with vibrato then tremolo.
+    d = []
+
+    def steady_adsr(tsec):
+        # Instant attack, no decay, full sustain -> a flat amplitude the LFO rides.
+        for num, val in (
+            (CC_ATTACK, 0),
+            (CC_DECAY, 0),
+            (CC_SUSTAIN, 127),
+            (CC_RELEASE, 20),
+        ):
+            d.append((ticks(tsec), cc(4, num, val)))
+
+    # Vibrato: pitch LFO on, tremolo off; held LFO_HOLD s.
+    steady_adsr(VIB_ON)
+    d.append((ticks(VIB_ON), cc(4, CC_VIB_RANGE, 100)))
+    d.append((ticks(VIB_ON), cc(4, CC_VIB_HZ, LFO_HZ_CC)))
+    d.append((ticks(VIB_ON), cc(4, CC_TREM_RANGE, 0)))
+    d.append((ticks(VIB_ON), note_on(4, LFO_PITCH, 127)))
+    d.append((ticks(VIB_ON + LFO_HOLD), note_off(4, LFO_PITCH)))
+    # Tremolo: amplitude LFO on, vibrato off; held LFO_HOLD s.
+    steady_adsr(TREM_ON)
+    d.append((ticks(TREM_ON), cc(4, CC_VIB_RANGE, 0)))
+    d.append((ticks(TREM_ON), cc(4, CC_TREM_RANGE, 100)))
+    d.append((ticks(TREM_ON), cc(4, CC_TREM_HZ, LFO_HZ_CC)))
+    d.append((ticks(TREM_ON), note_on(4, LFO_PITCH, 127)))
+    d.append((ticks(TREM_ON + LFO_HOLD), note_off(4, LFO_PITCH)))
+
     write_smf(
         path,
         None,
         fmt=1,
-        ntrks=3,
-        tracks=[_events_to_track(a), _events_to_track(b), _events_to_track(c)],
+        ntrks=4,
+        tracks=[
+            _events_to_track(a),
+            _events_to_track(b),
+            _events_to_track(c),
+            _events_to_track(d),
+        ],
     )
 
 
@@ -297,9 +354,78 @@ def test_envelope(samples, rate):
         fail("ring-down not exponential (window ratios vary too much: %s)" % ratios)
 
 
+def _lfo_spans(samples, rate, t0, t1, wms=50):
+    """Per-window edge rate and duty across [t0, t1]; return their relative
+    swings (peak-to-peak / mean) -- how much each dimension the LFO moves."""
+    step = int(rate * wms / 1000)
+    lo, hi = int(t0 * rate), int(t1 * rate)
+    rates, duties = [], []
+    for a in range(lo, hi - step, step):
+        seg = samples[a : a + step]
+        edges = sum(1 for i in range(1, len(seg)) if seg[i - 1] <= 0 < seg[i])
+        rates.append(edges / (wms / 1000.0))
+        duties.append(sum(seg) / len(seg) / 32767.0)
+    rmean = sum(rates) / len(rates)
+    dmean = sum(duties) / len(duties)
+    rswing = (max(rates) - min(rates)) / rmean if rmean else 0.0
+    dswing = (max(duties) - min(duties)) / dmean if dmean else 0.0
+    return rswing, dswing, rmean
+
+
+def test_lfo(samples, rate):
+    print("[poly] vibrato modulates pitch; tremolo modulates amplitude")
+    # Baseline: a steady note's own jitter floor for both dimensions. Reuse the
+    # full-sustain attack hold window (ch 3), which has no LFO.
+    base_r, base_d, _ = _lfo_spans(
+        samples, rate, ENV_ATTACK_ON + 0.6, ENV_ATTACK_ON + 1.0
+    )
+    print(
+        "  baseline (no LFO): edge-rate swing %.0f%%, duty swing %.0f%%"
+        % (100 * base_r, 100 * base_d)
+    )
+
+    # Vibrato: pitch wobble -> the pulse edge rate swings well above the floor.
+    vib_r, vib_d, vib_mean = _lfo_spans(
+        samples, rate, VIB_ON + 0.2, VIB_ON + LFO_HOLD - 0.1
+    )
+    print(
+        "  vibrato: edge-rate swing %.0f%% (mean %.0f Hz), duty swing %.0f%%"
+        % (100 * vib_r, vib_mean, 100 * vib_d)
+    )
+    if not vib_r > 0.10:
+        fail("vibrato did not swing the pitch (edge-rate swing %.0f%%)" % (100 * vib_r))
+    if not vib_r > 3 * base_r:
+        fail(
+            "vibrato edge-rate swing %.0f%% not clearly above the no-LFO floor %.0f%%"
+            % (100 * vib_r, 100 * base_r)
+        )
+
+    # Tremolo: amplitude wobble -> the duty swings hugely while the edge rate
+    # (pitch) stays at the steady-note floor.
+    trem_r, trem_d, _ = _lfo_spans(
+        samples, rate, TREM_ON + 0.2, TREM_ON + LFO_HOLD - 0.1
+    )
+    print(
+        "  tremolo: duty swing %.0f%%, edge-rate swing %.0f%%"
+        % (100 * trem_d, 100 * trem_r)
+    )
+    if not trem_d > 0.30:
+        fail("tremolo did not swing the amplitude (duty swing %.0f%%)" % (100 * trem_d))
+    if not trem_d > 3 * base_d:
+        fail(
+            "tremolo duty swing %.0f%% not clearly above the no-LFO floor %.0f%%"
+            % (100 * trem_d, 100 * base_d)
+        )
+    if not trem_r < 0.10:
+        fail(
+            "tremolo perturbed the pitch (edge-rate swing %.0f%% should stay near "
+            "the no-LFO floor)" % (100 * trem_r)
+        )
+
+
 def main():
-    print("chime_red2 host polyphony + velocity integration test")
-    keep = os.environ.get("CR_POLY_WAV")  # optional: persist the WAV for listening
+    print("chime_red2 host feature integration test (polyphony/velocity/envelope/LFOs)")
+    keep = os.environ.get("CR_FEATURES_WAV")  # optional: persist the WAV for listening
     with tempfile.TemporaryDirectory() as tmp:
         mid = os.path.join(tmp, "poly.mid")
         raw_wav = os.path.join(tmp, "poly_raw.wav")
@@ -316,6 +442,7 @@ def main():
         test_polyphony(samples, rate)
         test_velocity(samples, rate)
         test_envelope(samples, rate)
+        test_lfo(samples, rate)
         if keep:
             # A normalised, DC-blocked render is the nice-to-listen-to version.
             subprocess.run(
