@@ -155,7 +155,7 @@ const cr_fp_t AdsrCurveMs[] = {
   4096.000000, // 127
 };
 
-const cr_fp_t AdsrCurveLevelStep[] = {
+const cr_env_t AdsrCurveLevelStep[] = {
   1.0 / (0.000000 / controlClockTickMs), // 0
   1.0 / (1.000000 / controlClockTickMs), // 1
   1.0 / (2.000000 / controlClockTickMs), // 2
@@ -285,6 +285,143 @@ const cr_fp_t AdsrCurveLevelStep[] = {
   1.0 / (3971.000000 / controlClockTickMs), // 126
   1.0 / (4096.000000 / controlClockTickMs), // 127
 };
+
+// Exponential decay/release per-tick multipliers, regenerated for a
+// 3x-longer ring: r[i] = exp(-ln(1000)*controlClockTickMs/(AdsrCurveMs[i]*3)),
+// i.e. the level reaches -60 dB over envRingScale*decayMs, not decayMs. The
+// age cap (_decay/_release) is scaled by the same envRingScale in Reset(), so
+// the phase still ends right at the -60 dB floor (no snap).
+// controlClockTickMs=0.190006  K=ln(1000)=6.907755  envRingScale=3
+const cr_env_t AdsrCurveExpMul[] = {
+  0.0000000000, // 0  (ring T=0ms)
+  0.6456457548, // 1  (ring T=3ms)
+  0.8035208490, // 2  (ring T=6ms)
+  0.8643005047, // 3  (ring T=9ms)
+  0.8963932446, // 4  (ring T=12ms)
+  0.9162180850, // 5  (ring T=15ms)
+  0.9296776348, // 6  (ring T=18ms)
+  0.9394124867, // 7  (ring T=21ms)
+  0.9467804627, // 8  (ring T=24ms)
+  0.9525510400, // 9  (ring T=27ms)
+  0.9571928150, // 10  (ring T=30ms)
+  0.9610074502, // 11  (ring T=33ms)
+  0.9641979231, // 12  (ring T=36ms)
+  0.9669058257, // 13  (ring T=39ms)
+  0.9692329373, // 14  (ring T=42ms)
+  0.9712542973, // 15  (ring T=45ms)
+  0.9745927899, // 16  (ring T=51ms)
+  0.9759872130, // 17  (ring T=54ms)
+  0.9772365459, // 18  (ring T=57ms)
+  0.9783623127, // 19  (ring T=60ms)
+  0.9803098746, // 20  (ring T=66ms)
+  0.9811578494, // 21  (ring T=69ms)
+  0.9826520669, // 22  (ring T=75ms)
+  0.9839267137, // 23  (ring T=81ms)
+  0.9850268740, // 24  (ring T=87ms)
+  0.9855223474, // 25  (ring T=90ms)
+  0.9864210283, // 26  (ring T=96ms)
+  0.9875776794, // 27  (ring T=105ms)
+  0.9882451936, // 28  (ring T=111ms)
+  0.9888446290, // 29  (ring T=117ms)
+  0.9896372978, // 30  (ring T=126ms)
+  0.9903247913, // 31  (ring T=135ms)
+  0.9909267399, // 32  (ring T=144ms)
+  0.9914581749, // 33  (ring T=153ms)
+  0.9919308008, // 34  (ring T=162ms)
+  0.9923538676, // 35  (ring T=171ms)
+  0.9928534573, // 36  (ring T=183ms)
+  0.9932917661, // 37  (ring T=195ms)
+  0.9936794175, // 38  (ring T=207ms)
+  0.9941052226, // 39  (ring T=222ms)
+  0.9944772776, // 40  (ring T=237ms)
+  0.9948051557, // 41  (ring T=252ms)
+  0.9950962841, // 42  (ring T=267ms)
+  0.9954052798, // 43  (ring T=285ms)
+  0.9956776427, // 44  (ring T=303ms)
+  0.9959195227, // 45  (ring T=321ms)
+  0.9961695978, // 46  (ring T=342ms)
+  0.9963907910, // 47  (ring T=363ms)
+  0.9966142385, // 48  (ring T=387ms)
+  0.9967882255, // 49  (ring T=408ms)
+  0.9969872764, // 50  (ring T=435ms)
+  0.9971630947, // 51  (ring T=462ms)
+  0.9973195235, // 52  (ring T=489ms)
+  0.9974742685, // 53  (ring T=519ms)
+  0.9976121217, // 54  (ring T=549ms)
+  0.9977473642, // 55  (ring T=582ms)
+  0.9978784464, // 56  (ring T=618ms)
+  0.9979951121, // 57  (ring T=654ms)
+  0.9980996154, // 58  (ring T=690ms)
+  0.9982011906, // 59  (ring T=729ms)
+  0.9982990968, // 60  (ring T=771ms)
+  0.9983928212, // 61  (ring T=816ms)
+  0.9984767561, // 62  (ring T=861ms)
+  0.9985571334, // 63  (ring T=909ms)
+  0.9986337333, // 64  (ring T=960ms)
+  0.9987026100, // 65  (ring T=1011ms)
+  0.9987683526, // 66  (ring T=1065ms)
+  0.9988308864, // 67  (ring T=1122ms)
+  0.9988901993, // 68  (ring T=1182ms)
+  0.9989437845, // 69  (ring T=1242ms)
+  0.9989970531, // 70  (ring T=1308ms)
+  0.9990452066, // 71  (ring T=1374ms)
+  0.9990927266, // 72  (ring T=1446ms)
+  0.9991357407, // 73  (ring T=1518ms)
+  0.9991764141, // 74  (ring T=1593ms)
+  0.9992148429, // 75  (ring T=1671ms)
+  0.9992524090, // 76  (ring T=1755ms)
+  0.9992865445, // 77  (ring T=1839ms)
+  0.9993187613, // 78  (ring T=1926ms)
+  0.9993501306, // 79  (ring T=2019ms)
+  0.9993796191, // 80  (ring T=2115ms)
+  0.9994065475, // 81  (ring T=2211ms)
+  0.9994327105, // 82  (ring T=2313ms)
+  0.9994580103, // 83  (ring T=2421ms)
+  0.9994811497, // 84  (ring T=2529ms)
+  0.9995035236, // 85  (ring T=2643ms)
+  0.9995245649, // 86  (ring T=2760ms)
+  0.9995448442, // 87  (ring T=2883ms)
+  0.9995638994, // 88  (ring T=3009ms)
+  0.9995818233, // 89  (ring T=3138ms)
+  0.9995990682, // 90  (ring T=3273ms)
+  0.9996152857, // 91  (ring T=3411ms)
+  0.9996308662, // 92  (ring T=3555ms)
+  0.9996455213, // 93  (ring T=3702ms)
+  0.9996595877, // 94  (ring T=3855ms)
+  0.9996728252, // 95  (ring T=4011ms)
+  0.9996857503, // 96  (ring T=4176ms)
+  0.9996976930, // 97  (ring T=4341ms)
+  0.9997093417, // 98  (ring T=4515ms)
+  0.9997203049, // 99  (ring T=4692ms)
+  0.9997308028, // 100  (ring T=4875ms)
+  0.9997408486, // 101  (ring T=5064ms)
+  0.9997504565, // 102  (ring T=5259ms)
+  0.9997596419, // 103  (ring T=5460ms)
+  0.9997684205, // 104  (ring T=5667ms)
+  0.9997766945, // 105  (ring T=5877ms)
+  0.9997847159, // 106  (ring T=6096ms)
+  0.9997923783, // 107  (ring T=6321ms)
+  0.9997996058, // 108  (ring T=6549ms)
+  0.9998066039, // 109  (ring T=6786ms)
+  0.9998133688, // 110  (ring T=7032ms)
+  0.9998197508, // 111  (ring T=7281ms)
+  0.9998259187, // 112  (ring T=7539ms)
+  0.9998317433, // 113  (ring T=7800ms)
+  0.9998374327, // 114  (ring T=8073ms)
+  0.9998428064, // 115  (ring T=8349ms)
+  0.9998479948, // 116  (ring T=8634ms)
+  0.9998530000, // 117  (ring T=8928ms)
+  0.9998577785, // 118  (ring T=9228ms)
+  0.9998623429, // 119  (ring T=9534ms)
+  0.9998667859, // 120  (ring T=9852ms)
+  0.9998709891, // 121  (ring T=10173ms)
+  0.9998750780, // 122  (ring T=10506ms)
+  0.9998789826, // 123  (ring T=10845ms)
+  0.9998827449, // 124  (ring T=11193ms)
+  0.9998863690, // 125  (ring T=11550ms)
+  0.9998898312, // 126  (ring T=11913ms)
+  0.9998931931, // 127  (ring T=12288ms)
+};
 #pragma GCC diagnostic pop
 
 AdsrEnvelope::AdsrEnvelope() {
@@ -294,23 +431,17 @@ AdsrEnvelope::AdsrEnvelope() {
 void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t release) {
   _attack = AdsrCurveMs[attack];
   _attackInc = AdsrCurveLevelStep[attack];
-  _decay = AdsrCurveMs[decay];
-  _decayDec = 0;
-  _sustain = midiValMap[sustain];
-  _release = AdsrCurveMs[release];
-  _releaseDec = AdsrCurveLevelStep[release];
-  if (attack == 0 && decay == 0 && sustain == maxMidiVal && release == 0) {
-    isNull = true;
-  } else {
-    isNull = false;
-    if (decay && sustain < maxMidiVal) {
-      // (1.0/_decay)*controlClockTickMs is exactly AdsrCurveLevelStep[decay] (=
-      // controlClockTickMs/AdsrCurveMs[decay]), so reuse that precomputed
-      // reciprocal -- like _attackInc/_releaseDec above -- instead of a runtime
-      // divide (and the double-literal arithmetic) on the no-FPU target.
-      _decayDec = (cr_fp_t(1) - _sustain) * AdsrCurveLevelStep[decay];
-    }
-  }
+  // Decay and release are exponential (a struck bell rings down fast at first,
+  // then a long faint tail), so they multiply the level by a per-tick factor
+  // (AdsrCurveExpMul) rather than subtracting a fixed step. Attack stays linear.
+  // The age cap is scaled by envRingScale to match AdsrCurveExpMul (generated
+  // with the same factor) so the phase ends right at the -60 dB floor, not early.
+  _decay = AdsrCurveMs[decay] * envRingScale;
+  _decayMul = AdsrCurveExpMul[decay];
+  _sustain = cr_env_t(midiValMap[sustain]);
+  _release = AdsrCurveMs[release] * envRingScale;
+  _releaseMul = AdsrCurveExpMul[release];
+  isNull = (attack == 0 && decay == 0 && sustain == maxMidiVal && release == 0);
   level = 0;
   _ageMs = 0;
   SetInitialPhase();
@@ -331,7 +462,7 @@ bool AdsrEnvelope::IsIdle() {
 }
 
 void AdsrEnvelope::Decay() {
-  level = 1.0;
+  level = cr_env_t(1);
   ChangePhase(ENV_DECAY);
 }
 
@@ -341,7 +472,7 @@ void AdsrEnvelope::Sustain() {
   // Otherwise a long-held note whose amplitude has already decayed to zero (e.g. a
   // struck FM bell -- long decay, zero sustain) keeps emitting a faint breakout-
   // floor tone until note-off. A non-zero sustain holds as before.
-  if (_sustain <= cr_fp_t(0)) {
+  if (_sustain <= cr_env_t(0)) {
     Idle();
     return;
   }
@@ -351,7 +482,7 @@ void AdsrEnvelope::Sustain() {
 
 void AdsrEnvelope::Idle() {
   if (_phase < ENV_IDLE) {
-    level = 0;
+    level = cr_env_t(0);
     ChangePhase(ENV_IDLE);
   }
 }
@@ -371,13 +502,17 @@ void AdsrEnvelope::HandleControl() {
     case ENV_ATTACK: {
         level += _attackInc;
         _ageMs += controlClockTickMsFp;
-        if (level >= 1.0 || _ageMs > _attack) {
+        if (level >= cr_env_t(1) || _ageMs > _attack) {
           Decay();
         }
       }
       break;
     case ENV_DECAY: {
-        level -= _decayDec;
+        // Exponential approach to the sustain level: level decays by a constant
+        // FRACTION each tick, so it falls fast at first then tails off -- a bell-
+        // like ring. (level - sustain) is the part that decays; sustain is the
+        // floor it settles to.
+        level = _sustain + cr_env_t((level - _sustain) * _decayMul);
         _ageMs += controlClockTickMsFp;
         if (level <= _sustain || _ageMs > _decay) {
           Sustain();
@@ -385,9 +520,10 @@ void AdsrEnvelope::HandleControl() {
       }
       break;
     case ENV_RELEASE: {
-        level -= _releaseDec;
+        // Exponential ring-down to silence (same shape as decay, floor 0).
+        level = cr_env_t(level * _releaseMul);
         _ageMs += controlClockTickMsFp;
-        if (level <= 0 || _ageMs > _release) {
+        if (level <= cr_env_t(0) || _ageMs > _release) {
           Idle();
         }
       }

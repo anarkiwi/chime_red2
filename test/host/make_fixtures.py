@@ -30,7 +30,7 @@ CC_FM_RATIO_FINE, CC_FM_RATIO, CC_FM_INDEX = 19, 20, 21
 CC_MOD_ATTACK, CC_MOD_DECAY, CC_MOD_SUSTAIN, CC_MOD_RELEASE = 102, 103, 104, 105
 
 # Program-change presets (mirrors CRMidi::handleProgramChange).
-PC_BELL, PC_BASS_PLUCK, PC_BASS_GROWL, PC_BASS_FAT = 14, 38, 39, 40
+PC_BELL = 14
 
 
 def beats(count):
@@ -47,13 +47,16 @@ def fm_setup(
     amp_sustain=0,
     amp_release=40,
     mod_attack=0,
-    mod_decay=110,
+    mod_decay=124,
     mod_sustain=0,
     mod_release=0,
 ):
     """Tick-0 CC block configuring a channel for FM (bell defaults; override the
-    envelopes/ratio for bass). CC19 (fine ratio) is emitted only when non-zero, so
-    the bell fixtures' bytes are unaffected by adding the fine control."""
+    envelopes/ratio for bass). The default mod (brightness) decay matches the
+    amp decay so the FM character rings the whole note instead of dying early
+    into a plain tone -- mirrors program-change preset 14. CC19 (fine ratio) is
+    emitted only when non-zero, so the bell fixtures' bytes are unaffected by
+    adding the fine control."""
     events = [
         (0, tempo(TEMPO)),
         (0, cc(ch, CC_AMP_ATTACK, amp_attack)),
@@ -102,65 +105,31 @@ def melody(setup, notes, gap_beats=2.0, vel=112):
     return events
 
 
-def bass(setup):
-    return strike(setup, note=36, hold_beats=3, vel=118)
-
-
 def fixtures():
     """Name -> event list. Listenable demos + controls for test_fm.py."""
     bell = fm_setup()
     return {
         # Bell demos.
-        "fm_bell_c5": strike(bell, note=72),
         "fm_bell_c4": strike(bell, note=60),
+        "fm_bell_c5": strike(bell, note=72),
+        "fm_bell_c6": strike(bell, note=84),
+        "fm_bell_c7": strike(bell, note=96),
         "fm_bell_melody": melody(
             fm_setup(amp_decay=96, mod_decay=96, amp_release=72),
             notes=(60, 55, 52, 55, 60, 64, 60),
         ),
-        # Bass demos (C2). Fat = near-unity ratio via the fine adjust (needs CC19);
-        # pluck = bright FM attack, clean body; growl = sustained modulation.
-        "fm_bass_fat": bass(
-            fm_setup(
-                ratio10=10,
-                ratio_fine=8,
-                index=70,
-                amp_decay=40,
-                amp_sustain=95,
-                mod_decay=30,
-                mod_sustain=40,
-                mod_release=30,
-            )
-        ),
-        "fm_bass_pluck": bass(
-            fm_setup(
-                ratio10=12,
-                index=115,
-                amp_decay=55,
-                amp_sustain=60,
-                amp_release=30,
-                mod_decay=30,
-                mod_sustain=0,
-                mod_release=20,
-            )
-        ),
-        "fm_bass_growl": bass(
-            fm_setup(
-                ratio10=12,
-                index=110,
-                amp_decay=60,
-                amp_sustain=85,
-                mod_decay=90,
-                mod_sustain=70,
-                mod_release=30,
-            )
-        ),
-        # Program-change preset path (PC 40 = fat bass): exercises handleProgramChange.
-        "fm_bass_preset": bass(preset(PC_BASS_FAT)),
+        # Program-change preset path (PC 14 = bell): exercises handleProgramChange.
+        "fm_bell_preset": strike(preset(PC_BELL), note=72),
         # Test controls.
         "fm_off_c5": strike(fm_setup(ratio10=0, index=0), note=72, hold_beats=8),
         "fm_decay_c5": strike(fm_setup(mod_decay=70), note=72, hold_beats=8),
+        # Constant-index control: hold BOTH the mod index and the amplitude (no
+        # decay) so the interval CoV stays steady throughout -- isolates "the mod
+        # envelope does not spuriously decay" from amplitude-driven pulse changes.
         "fm_constant_c5": strike(
-            fm_setup(mod_decay=0, mod_sustain=127), note=72, hold_beats=8
+            fm_setup(mod_decay=0, mod_sustain=127, amp_decay=0, amp_sustain=127),
+            note=72,
+            hold_beats=8,
         ),
     }
 

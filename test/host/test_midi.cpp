@@ -427,7 +427,10 @@ void TestEnvelopeAdsr() {
   CHECK(AudibleCount(oc) == 1, "env: held note should still sound");
 
   crmidi.handleNoteOff(1, 60);
-  RunControl(crmidi, 40); // release -> idle -> expire
+  // release -> idle -> expire. The exponential release rings down over
+  // envRingScale * the CC release time, so allow enough control cycles for even
+  // a short release (CC 1) to reach the floor and free the voice.
+  RunControl(crmidi, 200);
   CHECK(AudibleCount(oc) == 0, "env: released note should fall silent, got %d",
         AudibleCount(oc));
 
@@ -437,7 +440,7 @@ void TestEnvelopeAdsr() {
   crmidi.handleControlChange(1, 75, 1); // decay > 0
   crmidi.handleNoteOn(1, 62, 100);
   Oscillator *d = FirstAudible(oc);
-  CHECK(d != NULL && d->envelope->level == cr_fp_t(1.0),
+  CHECK(d != NULL && d->envelope->level == cr_env_t(1),
         "env: zero-attack note should start decay at full level, got %.3f",
         d ? static_cast<double>(d->envelope->level) : -1.0);
   RunControl(crmidi, 200);

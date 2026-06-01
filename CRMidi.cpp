@@ -339,52 +339,17 @@ void CRMidi::handleProgramChange(byte channel, byte number) {
     case 14:
       // FM bell preset (also fully reachable via the CC set above): ratio 1.4
       // carrier:modulator, instant attack + long ring on both amplitude and a
-      // zero-sustain modulation-index envelope, so brightness and loudness fade
-      // together like a struck bell.
+      // zero-sustain modulation-index envelope. The modulation-index decay
+      // matches the amplitude decay so brightness and loudness fade *together*
+      // over the whole ring -- otherwise the FM character dies well before the
+      // note does, leaving a plain (un-modulated) tone for the rest of the decay.
       midiChannel->fmRatio = 14;
       midiChannel->fmIndex = 100;
       midiChannel->decay = 124;
       midiChannel->sustain = 0;
       midiChannel->release = 40;
-      midiChannel->modDecay = 110;
+      midiChannel->modDecay = 124;
       midiChannel->modSustain = 0;
-      break;
-    case 38:
-      // FM pluck bass: ratio 1.2 with a fast-decaying, zero-sustain modulation
-      // index -- a bright FM attack transient over a clean, sustained body.
-      midiChannel->fmRatio = 12;
-      midiChannel->fmIndex = 115;
-      midiChannel->decay = 55;
-      midiChannel->sustain = 60;
-      midiChannel->release = 30;
-      midiChannel->modDecay = 30;
-      midiChannel->modSustain = 0;
-      midiChannel->modRelease = 20;
-      break;
-    case 39:
-      // FM growl bass: ratio 1.2 with a sustained modulation index -- an animated,
-      // buzzy, mid-forward bass.
-      midiChannel->fmRatio = 12;
-      midiChannel->fmIndex = 110;
-      midiChannel->decay = 60;
-      midiChannel->sustain = 85;
-      midiChannel->release = 40;
-      midiChannel->modDecay = 90;
-      midiChannel->modSustain = 70;
-      midiChannel->modRelease = 30;
-      break;
-    case 40:
-      // FM fat bass: a near-unity ratio (1.08, via the fine adjust) clusters the
-      // sidebands tightly around the fundamental for a thick, chorused bass.
-      midiChannel->fmRatio = 10;
-      midiChannel->fmRatioFine = 8;
-      midiChannel->fmIndex = 70;
-      midiChannel->decay = 40;
-      midiChannel->sustain = 95;
-      midiChannel->release = 40;
-      midiChannel->modDecay = 30;
-      midiChannel->modSustain = 40;
-      midiChannel->modRelease = 30;
       break;
     default:
       break;
@@ -440,7 +405,7 @@ inline cr_fp_t CRMidi::ModulateChain(cr_fp_t p, Oscillator *audibleOscillator, M
     p = amModulate(p, midiValMap[midiChannel->tremoloRange], _oc->tremoloLfo->Level());
   }
   if (!audibleOscillator->envelope->isNull) {
-    p *= audibleOscillator->envelope->level;
+    p *= cr_fp_t(audibleOscillator->envelope->level);
   }
   if (midiChannel->volume != maxMidiVal) {
     p *= midiValMap[midiChannel->volume];

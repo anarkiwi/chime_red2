@@ -22,7 +22,7 @@ class AdsrEnvelope {
   void Idle();
   void Release();
   void HandleControl();
-  cr_fp_t level;
+  cr_env_t level;
   bool isNull;
  private:
   enum { ENV_ATTACK, ENV_DECAY, ENV_SUSTAIN, ENV_RELEASE, ENV_IDLE };
@@ -30,12 +30,12 @@ class AdsrEnvelope {
   void ChangePhase(uint8_t newPhase);
   uint8_t _phase;
   cr_fp_t _attack;
-  cr_fp_t _attackInc;
+  cr_env_t _attackInc;
   cr_fp_t _decay;
-  cr_fp_t _decayDec;
-  cr_fp_t _sustain;
+  cr_env_t _decayMul;
+  cr_env_t _sustain;
   cr_fp_t _release;
-  cr_fp_t _releaseDec;
+  cr_env_t _releaseMul;
   cr_fp_t _ageMs;
 };
 

@@ -85,8 +85,10 @@ def test_fm_modulates_period(tmp):
     print("[fm] FM modulates the carrier period (vs FM off)")
     rate_off, s_off = render_fixture("fm_off_c5", tmp)
     rate_on, s_on = render_fixture("fm_decay_c5", tmp)
-    cov_off, hz_off = interval_stats(s_off, rate_off, 0.1, 0.6)
-    cov_on, hz_on = interval_stats(s_on, rate_on, 0.1, 0.6)
+    # Measure right after the strike: the modulation-index envelope decays
+    # exponentially (fast at first), so the FM character is concentrated early.
+    cov_off, hz_off = interval_stats(s_off, rate_off, 0.0, 0.25)
+    cov_on, hz_on = interval_stats(s_on, rate_on, 0.0, 0.25)
     tgt = midi_hz(72)
     print(
         "  FM off: pulse %.1f Hz (target %.1f), interval CoV %.4f"
@@ -106,10 +108,13 @@ def test_mod_envelope_decays_brightness(tmp):
     print("[fm] modulation-index envelope decays brightness over the note")
     rate_d, s_d = render_fixture("fm_decay_c5", tmp)
     rate_c, s_c = render_fixture("fm_constant_c5", tmp)
-    early_d, _ = interval_stats(s_d, rate_d, 0.1, 0.6)
-    late_d, _ = interval_stats(s_d, rate_d, 2.5, 3.0)
-    early_c, _ = interval_stats(s_c, rate_c, 0.1, 0.6)
-    late_c, _ = interval_stats(s_c, rate_c, 2.5, 3.0)
+    # Exponential mod decay: compare just after the strike against a window once
+    # the (fast) decay has run. fm_decay_c5's mod decay (~0.44 s) is long gone by
+    # 0.5-1.0 s, while the constant-index control stays modulated throughout.
+    early_d, _ = interval_stats(s_d, rate_d, 0.0, 0.25)
+    late_d, _ = interval_stats(s_d, rate_d, 0.5, 1.0)
+    early_c, _ = interval_stats(s_c, rate_c, 0.0, 0.25)
+    late_c, _ = interval_stats(s_c, rate_c, 0.5, 1.0)
     print("  decaying index: interval CoV early %.4f -> late %.4f" % (early_d, late_d))
     print("  constant index: interval CoV early %.4f -> late %.4f" % (early_c, late_c))
     if not (early_d > 0.05 and late_d < 0.5 * early_d):
@@ -124,20 +129,20 @@ def test_mod_envelope_decays_brightness(tmp):
         )
 
 
-def test_fm_bass_and_preset(tmp):
-    print("[fm] fine-ratio bass + program-change preset path")
-    rate_f, s_f = render_fixture("fm_bass_fat", tmp)
-    rate_p, s_p = render_fixture("fm_bass_preset", tmp)
-    cov_f, hz_f = interval_stats(s_f, rate_f, 0.15, 0.5)
-    cov_p, _ = interval_stats(s_p, rate_p, 0.15, 0.5)
-    print("  fat bass (CC, ratio 1.08): CoV %.4f at %.0f Hz" % (cov_f, hz_f))
-    print("  fat bass (Program Change 40): CoV %.4f" % cov_p)
-    if not cov_f > 0.05:
-        fail("fine-ratio fat bass did not modulate (CoV %.4f)" % cov_f)
-    if not cov_p > 0.05:
-        fail("program-change preset produced no FM (CoV %.4f)" % cov_p)
-    if abs(cov_p - cov_f) > 0.03:
-        fail("preset voice %.4f != CC-driven voice %.4f" % (cov_p, cov_f))
+def test_bell_preset(tmp):
+    print("[fm] program-change bell preset reproduces the CC-driven bell")
+    rate_cc, s_cc = render_fixture("fm_bell_c5", tmp)
+    rate_pc, s_pc = render_fixture("fm_bell_preset", tmp)
+    cov_cc, hz_cc = interval_stats(s_cc, rate_cc, 0.1, 0.5)
+    cov_pc, _ = interval_stats(s_pc, rate_pc, 0.1, 0.5)
+    print("  bell (CC set)           : CoV %.4f at %.0f Hz" % (cov_cc, hz_cc))
+    print("  bell (Program Change 14): CoV %.4f" % cov_pc)
+    if not cov_cc > 0.05:
+        fail("CC-driven bell did not modulate (CoV %.4f)" % cov_cc)
+    if not cov_pc > 0.05:
+        fail("program-change preset produced no FM (CoV %.4f)" % cov_pc)
+    if abs(cov_pc - cov_cc) > 0.03:
+        fail("preset voice %.4f != CC-driven voice %.4f" % (cov_pc, cov_cc))
 
 
 def main():
@@ -145,7 +150,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         test_fm_modulates_period(tmp)
         test_mod_envelope_decays_brightness(tmp)
-        test_fm_bass_and_preset(tmp)
+        test_bell_preset(tmp)
     print(
         "\n%s (%d failure%s)"
         % ("PASS" if failures == 0 else "FAIL", failures, "" if failures == 1 else "s")

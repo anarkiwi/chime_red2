@@ -92,7 +92,7 @@ cr_tick_t Oscillator::SetNextTick(cr_tick_t masterClock) {
     }
     cr_fp_t depth = _fmDepth;
     if (modEnvelope && !modEnvelope->isNull) {
-      depth *= modEnvelope->level;
+      depth *= cr_fp_t(modEnvelope->level);
     }
     cr_fp_t delta = cr_fp_t(static_cast<int>(base)) * depth * SineTable[_fmPhase];
     // Promote the Q15 bend to Q30 (multiply, not shift, since delta may be
