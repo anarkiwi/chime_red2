@@ -52,7 +52,15 @@ ENV CR_SYNTH_SRC="/src/CRMidi.cpp /src/MidiChannel.cpp /src/OscillatorController
 FROM base AS cppcheck
 WORKDIR /src
 COPY *.cpp *.h *.ino ./
+# --suppress=unmatchedSuppression: the inline `// cppcheck-suppress unusedFunction`
+# comments are only triggered when cppcheck's whole-program analysis actually
+# flags the function as unused. That analysis is non-deterministic across
+# cppcheck versions (e.g. CRLiquidCrystal::setCursor is flagged on the CI image
+# but not on newer local installs even though CRIO.cpp:220 calls it), so we
+# tolerate the suppression being matched OR unmatched and only fail the build on
+# the underlying analysis findings.
 RUN cppcheck --enable=all --language=c++ --error-exitcode=1 --inline-suppr \
+      --suppress=unmatchedSuppression \
       *.cpp *.h *.ino && touch /cppcheck.ok
 
 # ---- softfloat: no-FPU regression gate (Arduino Due is a Cortex-M3, no FPU) ----

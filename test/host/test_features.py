@@ -23,8 +23,9 @@ pitch, duty = amplitude):
 
   3. ENVELOPE -- the ADSR shapes the duty over a note: a slow attack ramps up then
      holds; a decay falls to a held sustain (below the full-sustain plateau); and
-     a sustain-0 note rings down exponentially (near-constant window-to-window
-     duty ratio) to silence and frees itself.
+     a sustain-0 note rings down linearly to silence and frees itself. (The FM
+     mod-index envelope stays exponential, but only the amp envelope governs the
+     gate duty measured here.)
 
   4. LFOs -- vibrato (CC1 depth, CC76 Hz) wobbles the PITCH, so the edge rate
      swings; tremolo (CC92 depth, CC22 Hz) wobbles the AMPLITUDE, so the duty
@@ -33,8 +34,8 @@ pitch, duty = amplitude):
 Empirically grounded (probe, master clock 52631 Hz): the two triads (C4 E4 G4 +
 C5 E5 G5) -> ~1715 Hz edge rate (highest-only would be 784 Hz, ideal six-note sum
 2950 Hz); C5 at vel 25/75/125 -> duty 0.0081 / 0.0244 / 0.0406 (~1:3:5); sustain-0
-ring duty ratio ~0.20 per window; vibrato edge-rate swing ~27% vs ~4% steady;
-tremolo duty swing ~117% with edge rate flat at ~4%.
+linear ring collapses to 0 well before the tail window; vibrato edge-rate swing
+~27% vs ~4% steady; tremolo duty swing ~117% with edge rate flat at ~4%.
 
 Runs from coverage.sh (guarded on cr-render existing), exits non-zero on failure.
 Also writes the rendered WAV to $CR_FEATURES_WAV if set, for listening.
@@ -329,29 +330,29 @@ def test_envelope(samples, rate):
             % (dec_hold, atk_hold)
         )
 
-    # 3) Sustain-0, no note-off: exponential ring-down to silence that frees the
-    # voice. Duty must decrease across successive windows and reach ~0, with the
-    # decline being exponential (near-constant window-to-window RATIO, not a
-    # constant linear step).
+    # 3) Sustain-0, no note-off: linear ring-down to silence that frees the
+    # voice. Duty must be non-increasing across successive windows (with a
+    # straight-line decay the level plateaus at 0 once the ramp ends, so later
+    # windows may read identical zeros) and must reach ~0 by the tail. The
+    # first window must still be ringing, and by the last window the level has
+    # collapsed to a small fraction of the start.
     win = [
         duty(samples, rate, ENV_RING_ON + a, ENV_RING_ON + a + 0.2)
         for a in (0.05, 0.35, 0.65, 0.95)
     ]
     tail = duty(samples, rate, ENV_RING_ON + 1.8, ENV_RING_ON + 2.3)
     print("  ring:   %s -> tail %.5f" % (" ".join("%.5f" % d for d in win), tail))
-    if not all(win[i] > win[i + 1] for i in range(len(win) - 1)):
-        fail("sustain-0 ring did not decrease monotonically: %s" % win)
+    if not all(win[i] >= win[i + 1] for i in range(len(win) - 1)):
+        fail("sustain-0 ring not monotonically non-increasing: %s" % win)
+    if not win[0] > 0:
+        fail("sustain-0 first window already silent: %s" % win)
+    if not win[-1] < 0.1 * win[0]:
+        fail("sustain-0 last window did not collapse toward silence: %s" % win)
     if not tail < 0.02 * win[0]:
         fail(
             "sustain-0 note did not ring down to silence (start %.5f, tail %.5f)"
             % (win[0], tail)
         )
-    # Exponential: consecutive ratios stay similar (linear decay would make the
-    # ratios climb toward zero as the step becomes a larger fraction of the level).
-    ratios = [win[i + 1] / win[i] for i in range(len(win) - 1) if win[i] > 0]
-    print("    window ratios %s" % (" ".join("%.2f" % r for r in ratios)))
-    if len(ratios) >= 2 and not max(ratios) - min(ratios) < 0.25:
-        fail("ring-down not exponential (window ratios vary too much: %s)" % ratios)
 
 
 def _lfo_spans(samples, rate, t0, t1, wms=50):
