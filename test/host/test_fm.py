@@ -85,8 +85,10 @@ def test_fm_modulates_period(tmp):
     print("[fm] FM modulates the carrier period (vs FM off)")
     rate_off, s_off = render_fixture("fm_off_c5", tmp)
     rate_on, s_on = render_fixture("fm_decay_c5", tmp)
-    cov_off, hz_off = interval_stats(s_off, rate_off, 0.1, 0.6)
-    cov_on, hz_on = interval_stats(s_on, rate_on, 0.1, 0.6)
+    # Measure right after the strike: the modulation-index envelope decays
+    # exponentially (fast at first), so the FM character is concentrated early.
+    cov_off, hz_off = interval_stats(s_off, rate_off, 0.0, 0.25)
+    cov_on, hz_on = interval_stats(s_on, rate_on, 0.0, 0.25)
     tgt = midi_hz(72)
     print(
         "  FM off: pulse %.1f Hz (target %.1f), interval CoV %.4f"
@@ -106,10 +108,13 @@ def test_mod_envelope_decays_brightness(tmp):
     print("[fm] modulation-index envelope decays brightness over the note")
     rate_d, s_d = render_fixture("fm_decay_c5", tmp)
     rate_c, s_c = render_fixture("fm_constant_c5", tmp)
-    early_d, _ = interval_stats(s_d, rate_d, 0.1, 0.6)
-    late_d, _ = interval_stats(s_d, rate_d, 2.5, 3.0)
-    early_c, _ = interval_stats(s_c, rate_c, 0.1, 0.6)
-    late_c, _ = interval_stats(s_c, rate_c, 2.5, 3.0)
+    # Exponential mod decay: compare just after the strike against a window once
+    # the (fast) decay has run. fm_decay_c5's mod decay (~0.44 s) is long gone by
+    # 0.5-1.0 s, while the constant-index control stays modulated throughout.
+    early_d, _ = interval_stats(s_d, rate_d, 0.0, 0.25)
+    late_d, _ = interval_stats(s_d, rate_d, 0.5, 1.0)
+    early_c, _ = interval_stats(s_c, rate_c, 0.0, 0.25)
+    late_c, _ = interval_stats(s_c, rate_c, 0.5, 1.0)
     print("  decaying index: interval CoV early %.4f -> late %.4f" % (early_d, late_d))
     print("  constant index: interval CoV early %.4f -> late %.4f" % (early_c, late_c))
     if not (early_d > 0.05 and late_d < 0.5 * early_d):
