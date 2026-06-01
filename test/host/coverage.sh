@@ -35,8 +35,8 @@ if command -v cr-render >/dev/null 2>&1; then
   echo "===== FM-bell integration test ====="
   python3 /src/test/host/test_fm.py || status=$?
   echo
-  echo "===== polyphony + velocity integration test ====="
-  python3 /src/test/host/test_poly.py || status=$?
+  echo "===== feature integration test (polyphony/velocity/envelope/LFOs) ====="
+  python3 /src/test/host/test_features.py || status=$?
 fi
 
 # Report only the synth's own sources: drop the test harness and stubs, and the
