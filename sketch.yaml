@@ -1,0 +1,55 @@
+# Arduino sketch build profiles for CHIME RED II.
+#
+# This is the modern, self-contained way to make the sketch "just open, build,
+# and upload" -- it is NOT a library, so there is no library.properties; a
+# sketch declares its board + library dependencies here instead.
+#
+# Arduino IDE 2.3+: open this folder, then pick a profile from the board
+# selector (the IDE installs the pinned platform + libraries automatically).
+#
+# arduino-cli:
+#   arduino-cli compile  --profile due    # build for Arduino Due (CHIME RED I/II)
+#   arduino-cli upload   --profile due -p /dev/ttyACM0
+#   arduino-cli compile  --profile samd21 # build for SparkFun SAMD21
+#
+# When a profile is active, ONLY the libraries listed under it are used (any
+# globally-installed libraries are ignored), so each list is the full set the
+# sketch needs for that board. Versions are pinned for reproducible builds; bump
+# them deliberately.
+#
+# NOTE: the original README still applies -- for best audio on the Due, edit the
+# sam platform.txt to compile with -O2 instead of -Os, and tune pulseWindowUs /
+# breakoutUs in constants.h to your coil.
+
+profiles:
+  # Arduino Due -- the primary CHIME RED I/II target (ARDUINO_ARCH_SAM).
+  # Uses DueTimer for the master ISR.
+  due:
+    notes: Arduino Due (Atmel SAM3X) -- primary CHIME RED I/II hardware
+    fqbn: arduino:sam:arduino_due_x
+    platforms:
+      - platform: arduino:sam (1.6.12)
+    libraries:
+      - ArduinoSTL (1.3.3)
+      - DueTimer (1.4.8)
+      - FixedPoints (1.1.2)
+      - MIDI Library (5.0.2)
+
+  # SparkFun SAMD21 Dev Breakout -- the non-SAM build path. Uses
+  # SAMD_TimerInterrupt instead of DueTimer for the master ISR.
+  samd21:
+    notes: SparkFun SAMD21 Dev Breakout (Atmel SAMD21)
+    fqbn: SparkFun:samd:samd21_dev
+    platforms:
+      # SparkFun's core depends on Arduino's SAMD core, so both are listed.
+      - platform: SparkFun:samd (1.8.3)
+        platform_index_url: https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
+      - platform: arduino:samd (1.8.1)
+    libraries:
+      - ArduinoSTL (1.3.3)
+      - FixedPoints (1.1.2)
+      - MIDI Library (5.0.2)
+      - SAMD_TimerInterrupt (1.10.1)
+
+# Default profile used by `arduino-cli compile` with no --profile flag.
+default_profile: due

@@ -4,6 +4,24 @@ CHIME RED II
 WARNING: Tesla coils can be dangerous. This code is experimental. Don't even try to build this code unless you understand it and the coil you will control with it.
 
 
+Open and build in the Arduino IDE (easiest)
+===========================================
+
+This sketch ships a `sketch.yaml` with build profiles, so the board platform
+and all libraries install automatically -- no manual Boards Manager / Library
+Manager steps, and no SparkFun board-index URL to paste into preferences.
+
+* Arduino IDE 2.3+: open this folder, then pick a profile from the board
+  selector dropdown:
+  * `due`    -- Arduino Due (primary CHIME RED I/II hardware), the default
+  * `samd21` -- SparkFun SAMD21 Dev Breakout
+* Or from the command line:
+  * `arduino-cli compile --profile due`
+  * `arduino-cli upload  --profile due -p /dev/ttyACM0`
+
+You still want the `-O2` and coil-tuning steps below for real hardware.
+
+
 Build and run
 =============
 
