@@ -1,0 +1,59 @@
+# Arduino sketch build profiles for CHIME RED II.
+#
+# This declares the sketch's board + library dependencies. It is NOT a library,
+# so there is no library.properties; a sketch pins its dependencies here.
+#
+# IMPORTANT: only arduino-cli uses this file. The Arduino IDE (through 2.3.6)
+# does NOT read sketch.yaml and will NOT auto-install anything -- for the IDE
+# you must install the core + libraries once (see README). This file gives you a
+# one-command, auto-installing, reproducible build via arduino-cli:
+#
+#   arduino-cli compile  --profile due    # build for Arduino Due (CHIME RED I/II)
+#   arduino-cli upload   --profile due -p /dev/ttyACM0
+#   arduino-cli compile  --profile samd21 # build for SparkFun SAMD21
+#
+# When a profile is active, ONLY the libraries listed under it are used (any
+# globally-installed libraries are ignored), so each list is the full set the
+# sketch needs for that board. Versions are pinned for reproducible builds; bump
+# them deliberately.
+#
+# NOTE: the original README still applies -- for best audio on the Due, edit the
+# sam platform.txt to compile with -O2 instead of -Os, and tune pulseWindowUs /
+# breakoutUs in constants.h to your coil.
+
+profiles:
+  # Arduino Due -- the primary CHIME RED I/II target (ARDUINO_ARCH_SAM).
+  # Uses DueTimer for the master ISR.
+  due:
+    notes: Arduino Due (Atmel SAM3X) -- primary CHIME RED I/II hardware
+    fqbn: arduino:sam:arduino_due_x
+    platforms:
+      - platform: arduino:sam (1.6.12)
+    libraries:
+      - ArduinoSTL (1.3.3)
+      - DueTimer (1.4.7)
+      - FixedPoints (1.1.2)
+      - MIDI Library (5.0.2)
+
+  # SparkFun SAMD21 Dev Breakout -- the non-SAM build path. Uses
+  # SAMD_TimerInterrupt instead of DueTimer for the master ISR.
+  samd21:
+    notes: SparkFun SAMD21 Dev Breakout (Atmel SAMD21)
+    fqbn: SparkFun:samd:samd21_dev
+    platforms:
+      # SparkFun's SAMD core is self-contained (the original build installed
+      # only this, not arduino:samd), and its board index URL is embedded here
+      # so no Preferences URL is needed.
+      - platform: SparkFun:samd (1.8.3)
+        platform_index_url: https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
+    libraries:
+      - ArduinoSTL (1.3.3)
+      - FixedPoints (1.1.2)
+      - MIDI Library (5.0.2)
+      - SAMD_TimerInterrupt (1.10.1)
+
+# NB: intentionally no `default_profile`. Setting one would make a plain
+# `arduino-cli compile` (as build.sh / CI run, with their own --fqbn and
+# globally-installed libraries) switch into isolated profile mode and ignore
+# those libraries -- which breaks the existing build. Profiles are therefore
+# opt-in only, via an explicit `--profile due` / `--profile samd21`.

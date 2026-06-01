@@ -4,6 +4,50 @@ CHIME RED II
 WARNING: Tesla coils can be dangerous. This code is experimental. Don't even try to build this code unless you understand it and the coil you will control with it.
 
 
+Build with one command (arduino-cli)
+====================================
+
+This sketch ships a `sketch.yaml` with pinned build profiles. `arduino-cli`
+reads it and auto-installs the board core and every library on the fly (into an
+isolated per-sketch dir -- nothing global is touched):
+
+    arduino-cli compile --profile due                 # Arduino Due (CHIME RED I/II)
+    arduino-cli upload  --profile due -p /dev/ttyACM0
+    arduino-cli compile --profile samd21              # SparkFun SAMD21
+
+No Boards Manager, Library Manager, or board-index URL needed on this path.
+
+
+Open and build in the Arduino IDE
+=================================
+
+NOTE: the Arduino IDE (through 2.3.6) does NOT read `sketch.yaml` -- profile
+selection is not a shipped IDE feature, so the IDE will not auto-install
+anything. Just opening the sketch and hitting Compile fails with a missing
+`MIDI.h` because the libraries aren't installed. You install the core +
+libraries once (they then show up in the IDE for good), then Compile/Upload.
+
+One-time setup in Arduino IDE 2.3.x:
+
+1. Install the board core (Tools > Board > Boards Manager):
+   * Arduino Due:   install "Arduino SAM Boards (32-bits ARM Cortex-M3)".
+   * SparkFun SAMD21: first add this URL under
+     File > Preferences > "Additional boards manager URLs":
+       https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
+     then install "SparkFun SAMD Boards" in Boards Manager.
+2. Install the libraries (Tools > Manage Libraries):
+   * always:               ArduinoSTL, FixedPoints, MIDI Library
+   * Arduino Due only:     DueTimer
+   * SparkFun SAMD21 only: SAMD_TimerInterrupt
+3. Select your board, then Compile/Upload.
+
+(If you have `arduino-cli`, it shares the IDE's data dir, so
+`arduino-cli lib install "MIDI Library" FixedPoints ArduinoSTL DueTimer` etc.
+installs them into the IDE too -- or just run ./build.sh which does the lot.)
+
+You still want the `-O2` and coil-tuning steps below for real hardware.
+
+
 Build and run
 =============
 
