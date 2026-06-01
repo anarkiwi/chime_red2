@@ -1,13 +1,13 @@
 # Arduino sketch build profiles for CHIME RED II.
 #
-# This is the modern, self-contained way to make the sketch "just open, build,
-# and upload" -- it is NOT a library, so there is no library.properties; a
-# sketch declares its board + library dependencies here instead.
+# This declares the sketch's board + library dependencies. It is NOT a library,
+# so there is no library.properties; a sketch pins its dependencies here.
 #
-# Arduino IDE 2.3+: open this folder, then pick a profile from the board
-# selector (the IDE installs the pinned platform + libraries automatically).
+# IMPORTANT: only arduino-cli uses this file. The Arduino IDE (through 2.3.6)
+# does NOT read sketch.yaml and will NOT auto-install anything -- for the IDE
+# you must install the core + libraries once (see README). This file gives you a
+# one-command, auto-installing, reproducible build via arduino-cli:
 #
-# arduino-cli:
 #   arduino-cli compile  --profile due    # build for Arduino Due (CHIME RED I/II)
 #   arduino-cli upload   --profile due -p /dev/ttyACM0
 #   arduino-cli compile  --profile samd21 # build for SparkFun SAMD21
