@@ -51,5 +51,8 @@ profiles:
       - MIDI Library (5.0.2)
       - SAMD_TimerInterrupt (1.10.1)
 
-# Default profile used by `arduino-cli compile` with no --profile flag.
-default_profile: due
+# NB: intentionally no `default_profile`. Setting one would make a plain
+# `arduino-cli compile` (as build.sh / CI run, with their own --fqbn and
+# globally-installed libraries) switch into isolated profile mode and ignore
+# those libraries -- which breaks the existing build. Profiles are therefore
+# opt-in only, via an explicit `--profile due` / `--profile samd21`.

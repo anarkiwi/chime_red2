@@ -11,7 +11,7 @@ This sketch ships a `sketch.yaml` with pinned build profiles. `arduino-cli`
 reads it and auto-installs the board core and every library on the fly (into an
 isolated per-sketch dir -- nothing global is touched):
 
-    arduino-cli compile --profile due                 # Arduino Due (default)
+    arduino-cli compile --profile due                 # Arduino Due (CHIME RED I/II)
     arduino-cli upload  --profile due -p /dev/ttyACM0
     arduino-cli compile --profile samd21              # SparkFun SAMD21
 
