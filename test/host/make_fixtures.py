@@ -123,8 +123,13 @@ def fixtures():
         # Test controls.
         "fm_off_c5": strike(fm_setup(ratio10=0, index=0), note=72, hold_beats=8),
         "fm_decay_c5": strike(fm_setup(mod_decay=70), note=72, hold_beats=8),
+        # Constant-index control: hold BOTH the mod index and the amplitude (no
+        # decay) so the interval CoV stays steady throughout -- isolates "the mod
+        # envelope does not spuriously decay" from amplitude-driven pulse changes.
         "fm_constant_c5": strike(
-            fm_setup(mod_decay=0, mod_sustain=127), note=72, hold_beats=8
+            fm_setup(mod_decay=0, mod_sustain=127, amp_decay=0, amp_sustain=127),
+            note=72,
+            hold_beats=8,
         ),
     }
 

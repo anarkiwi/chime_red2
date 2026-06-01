@@ -49,6 +49,15 @@ const float controlClockTickMs = 1e3 / float(controlClockHz);
 // compile-time AdsrCurveLevelStep[] table initialiser.
 const cr_fp_t controlClockTickMsFp = cr_fp_t(controlClockTickMs);
 
+// Ring-length multiplier for the exponential decay/release. The CC decay/release
+// times (AdsrCurveMs) set the SHAPE; this stretches how long the level takes to
+// reach the -60 dB floor to envRingScale * that time, for a longer bell-like
+// ring-out. It scales BOTH the per-tick exponential factor (baked into
+// AdsrCurveExpMul, which is generated with this same value) and the phase age cap
+// (_decay/_release in AdsrEnvelope::Reset), so the decay still ends right at the
+// floor without snapping. Keep in sync with AdsrCurveExpMul's generator comment.
+const cr_fp_t envRingScale = 3;
+
 const cr_slowtick_t lfoClockRelHz = 50;
 const cr_slowtick_t lfoClockHz = masterClockHz / lfoClockRelHz;
 const cr_slowtick_t lfoClockMax = lfoClockRelHz - 1;
