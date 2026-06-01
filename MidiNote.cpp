@@ -13,6 +13,9 @@
 #include "constants.h"
 
 MidiNote::MidiNote() {
+  // Amplitude envelope drives coil pulse width and uses a linear ramp; the FM
+  // mod-index envelope keeps the default exponential bell curve.
+  envelope.SetLinear(true);
   Reset();
 };
 

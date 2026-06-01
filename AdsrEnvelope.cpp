@@ -431,16 +431,33 @@ AdsrEnvelope::AdsrEnvelope() {
 void AdsrEnvelope::Reset(uint8_t attack, uint8_t decay, uint8_t sustain, uint8_t release) {
   _attack = AdsrCurveMs[attack];
   _attackInc = AdsrCurveLevelStep[attack];
-  // Decay and release are exponential (a struck bell rings down fast at first,
-  // then a long faint tail), so they multiply the level by a per-tick factor
-  // (AdsrCurveExpMul) rather than subtracting a fixed step. Attack stays linear.
-  // The age cap is scaled by envRingScale to match AdsrCurveExpMul (generated
-  // with the same factor) so the phase ends right at the -60 dB floor, not early.
-  _decay = AdsrCurveMs[decay] * envRingScale;
-  _decayMul = AdsrCurveExpMul[decay];
   _sustain = cr_env_t(midiValMap[sustain]);
-  _release = AdsrCurveMs[release] * envRingScale;
-  _releaseMul = AdsrCurveExpMul[release];
+  if (_linear) {
+    // Amp uses linear decay/release: subtract a fixed step per tick so the
+    // amplitude rolls down on a straight line and lands exactly on the sustain
+    // (decay) / silence (release) floor at AdsrCurveMs ms. No -60 dB tail to
+    // stretch, so envRingScale does not apply.
+    _decay = AdsrCurveMs[decay];
+    _decayCoef = cr_env_t(0);
+    if (decay && sustain < maxMidiVal) {
+      // (1/_decay)*controlClockTickMs == AdsrCurveLevelStep[decay], scaled by
+      // the (1 - sustain) drop, so reuse the precomputed reciprocal instead of
+      // a runtime divide on the no-FPU target.
+      _decayCoef = (cr_env_t(1) - _sustain) * AdsrCurveLevelStep[decay];
+    }
+    _release = AdsrCurveMs[release];
+    _releaseCoef = AdsrCurveLevelStep[release];
+  } else {
+    // FM mod-index envelope: exponential decay/release (a struck bell rings
+    // down fast at first, then a long faint tail). Multiplies the level by a
+    // per-tick factor (AdsrCurveExpMul). The age cap is scaled by envRingScale
+    // to match AdsrCurveExpMul (generated with the same factor) so the phase
+    // ends right at the -60 dB floor, not early.
+    _decay = AdsrCurveMs[decay] * envRingScale;
+    _decayCoef = AdsrCurveExpMul[decay];
+    _release = AdsrCurveMs[release] * envRingScale;
+    _releaseCoef = AdsrCurveExpMul[release];
+  }
   isNull = (attack == 0 && decay == 0 && sustain == maxMidiVal && release == 0);
   level = 0;
   _ageMs = 0;
@@ -508,11 +525,15 @@ void AdsrEnvelope::HandleControl() {
       }
       break;
     case ENV_DECAY: {
-        // Exponential approach to the sustain level: level decays by a constant
-        // FRACTION each tick, so it falls fast at first then tails off -- a bell-
-        // like ring. (level - sustain) is the part that decays; sustain is the
-        // floor it settles to.
-        level = _sustain + cr_env_t((level - _sustain) * _decayMul);
+        if (_linear) {
+          // Straight-line drop from 1.0 toward _sustain over AdsrCurveMs[decay] ms.
+          level -= _decayCoef;
+        } else {
+          // Exponential approach to the sustain level: (level - sustain) decays
+          // by a constant FRACTION each tick -- fast initial drop, long faint
+          // tail, bell-like.
+          level = _sustain + cr_env_t((level - _sustain) * _decayCoef);
+        }
         _ageMs += controlClockTickMsFp;
         if (level <= _sustain || _ageMs > _decay) {
           Sustain();
@@ -520,8 +541,14 @@ void AdsrEnvelope::HandleControl() {
       }
       break;
     case ENV_RELEASE: {
-        // Exponential ring-down to silence (same shape as decay, floor 0).
-        level = cr_env_t(level * _releaseMul);
+        if (_linear) {
+          // Straight-line drop from the current level to silence; reaches 0 in
+          // (current_level * AdsrCurveMs[release]) ms (full ms from level=1.0).
+          level -= _releaseCoef;
+        } else {
+          // Exponential ring-down to silence (same shape as decay, floor 0).
+          level = cr_env_t(level * _releaseCoef);
+        }
         _ageMs += controlClockTickMsFp;
         if (level <= cr_env_t(0) || _ageMs > _release) {
           Idle();

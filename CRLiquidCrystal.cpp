@@ -53,7 +53,7 @@ void CRLiquidCrystal::clear() {
   command(LCD_CLEARDISPLAY);
 }
 
-void CRLiquidCrystal::setCursor(uint8_t col, uint8_t row) { // cppcheck-suppress unusedFunction
+void CRLiquidCrystal::setCursor(uint8_t col, uint8_t row) {
   byte offset = col;
   if (row) {
     offset |= 0x40;

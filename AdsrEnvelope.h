@@ -22,6 +22,10 @@ class AdsrEnvelope {
   void Idle();
   void Release();
   void HandleControl();
+  // Pick the decay/release shape. Amp envelopes use linear (straight-line
+  // amplitude); the FM mod-index envelope stays exponential for a bell-like
+  // brightness tail. Set once at construction; honored by every later Reset().
+  void SetLinear(bool linear) { _linear = linear; }
   cr_env_t level;
   bool isNull;
  private:
@@ -29,13 +33,16 @@ class AdsrEnvelope {
   void SetInitialPhase();
   void ChangePhase(uint8_t newPhase);
   uint8_t _phase;
+  bool _linear = false;
   cr_fp_t _attack;
   cr_env_t _attackInc;
   cr_fp_t _decay;
-  cr_env_t _decayMul;
+  // In linear mode, _decayCoef/_releaseCoef are per-tick subtraction steps;
+  // in exponential mode they are per-tick multiplicative factors.
+  cr_env_t _decayCoef;
   cr_env_t _sustain;
   cr_fp_t _release;
-  cr_env_t _releaseMul;
+  cr_env_t _releaseCoef;
   cr_fp_t _ageMs;
 };
 
