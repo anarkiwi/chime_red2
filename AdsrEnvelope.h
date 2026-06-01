@@ -32,10 +32,10 @@ class AdsrEnvelope {
   cr_fp_t _attack;
   cr_env_t _attackInc;
   cr_fp_t _decay;
-  cr_env_t _decayDec;
+  cr_env_t _decayMul;
   cr_env_t _sustain;
   cr_fp_t _release;
-  cr_env_t _releaseDec;
+  cr_env_t _releaseMul;
   cr_fp_t _ageMs;
 };
 
