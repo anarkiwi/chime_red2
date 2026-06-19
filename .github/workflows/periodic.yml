@@ -13,7 +13,7 @@ jobs:
         profile: ["due", "samd21"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Test
         run: |
           ./build.sh ${{ matrix.profile }}
