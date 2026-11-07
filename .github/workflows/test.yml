@@ -28,3 +28,21 @@ jobs:
           name: host-test-coverage
           path: test/host/coverage/coverage.xml
           if-no-files-found: warn
+  cxx-cost:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install virtuous-cycles
+        run: pip install git+https://github.com/anarkiwi/virtuous-cycles@v0.3.0
+      - name: ISR-path cost report (no budget yet)
+        if: hashFiles('budgets/isr-cost.json') == ''
+        run: test/cxx-cost/run.sh report
+      - name: ISR-path cost budget
+        if: hashFiles('budgets/isr-cost.json') != ''
+        run: test/cxx-cost/run.sh check
