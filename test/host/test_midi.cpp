@@ -1222,6 +1222,79 @@ void TestRecycledNoteHasNoStaleVoices() {
   }
 }
 
+// Notes go idle one at a time while others on the channel keep sounding:
+// MidiChannel::HandleControl must drop exactly the idle ones and keep the rest,
+// whether the idle note is the first, a middle one or the last of the channel's
+// notes (the cases an erase from the middle of the list has to get right).
+void TestPartialExpiryKeepsSurvivors() {
+  std::printf("[expire] idle notes are dropped, sounding ones are kept\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  crmidi.handleControlChange(1, 73, 1);  // attack
+  crmidi.handleControlChange(1, 75, 1);  // decay
+  crmidi.handleControlChange(1, 24, 64); // sustain: a held note keeps sounding
+  crmidi.handleControlChange(1, 72, 1);  // short release
+  const uint8_t notes[] = {50, 52, 54, 56, 58, 60}; // in the order struck
+  for (uint8_t n : notes) {
+    crmidi.handleNoteOn(1, n, 100);
+  }
+  RunControl(crmidi, 60); // into sustain
+  CHECK(AudibleCount(oc) == 6, "setup: expected 6 voices held, got %d",
+        AudibleCount(oc));
+
+  // The first and the last go; the four between keep sounding.
+  crmidi.handleNoteOff(1, 50);
+  crmidi.handleNoteOff(1, 60);
+  RunControl(crmidi, 200);
+  const uint8_t afterEnds[] = {52, 54, 56, 58};
+  CHECK(AudibleCount(oc) == 4, "first and last released: expected 4, got %d",
+        AudibleCount(oc));
+  for (uint8_t n : afterEnds) {
+    CHECK(AudibleAtNote(oc, n) == 1, "note %u should still sound once", n);
+  }
+  CHECK(AudibleAtNote(oc, 50) == 0 && AudibleAtNote(oc, 60) == 0,
+        "released end notes should be silent");
+
+  // A middle one goes.
+  crmidi.handleNoteOff(1, 54);
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 3, "middle released: expected 3, got %d",
+        AudibleCount(oc));
+  CHECK(AudibleAtNote(oc, 52) == 1 && AudibleAtNote(oc, 56) == 1 &&
+            AudibleAtNote(oc, 58) == 1 && AudibleAtNote(oc, 54) == 0,
+        "the survivors should be exactly 52, 56 and 58");
+
+  // Release in the other order: the survivors keep their place until the end.
+  crmidi.handleNoteOff(1, 56);
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 2 && AudibleAtNote(oc, 52) == 1 &&
+            AudibleAtNote(oc, 58) == 1,
+        "expected 52 and 58 left, got %d voices", AudibleCount(oc));
+  crmidi.handleNoteOff(1, 52);
+  crmidi.handleNoteOff(1, 58);
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 0, "all released: %d voices left",
+        AudibleCount(oc));
+
+  // Every note is back in the pool exactly once: a full chord gets a note of
+  // its own each. A note dropped twice, or left in the list after it went idle,
+  // would be issued twice and its voices would share one envelope.
+  for (uint8_t n = 40; n < 40 + oscillatorCount; ++n) {
+    crmidi.handleNoteOn(2, n, 100);
+  }
+  CHECK(AudibleCount(oc) == oscillatorCount,
+        "refill after partial expiry: expected %d voices, got %d",
+        oscillatorCount, AudibleCount(oc));
+  int shared = 0;
+  for (uint8_t i = 0; i < oscillatorCount; ++i) {
+    for (uint8_t j = i + 1; j < oscillatorCount; ++j) {
+      shared += oc.TestOsc(i)->envelope == oc.TestOsc(j)->envelope;
+    }
+  }
+  CHECK(shared == 0, "%d pairs of voices share a note's envelope", shared);
+}
+
 // A voice that has just been freed is still safe to hand to Modulate: it keeps
 // the channel it last sounded on. Modulate does not check for a missing
 // channel, so this is relied on if a pulse is already scheduled when the note
@@ -1265,6 +1338,7 @@ int main() {
   TestExpiryAcrossChannels();
   TestExpiredNoteIsReset();
   TestRecycledNoteHasNoStaleVoices();
+  TestPartialExpiryKeepsSurvivors();
   TestModulateOnFreedVoice();
   TestSchedulerAndLfoTick();
   TestModulation();

@@ -191,6 +191,11 @@ MidiNote *MidiChannel::NotesExpire(OscillatorController *oc) {
 }
 
 void MidiChannel::HandleControl() {
+  // Send the notes that have gone idle to be expired and keep the rest, in order,
+  // in one pass: slide each survivor down over the idle notes before it and trim
+  // the tail once. (Erasing each idle note from the middle shifts every note
+  // after it, and `i--` on the first of them steps before begin().)
+  MidiNoteDeque::iterator keep = _midiNotes.begin();
   // All channels share a pool of oscillatorCount notes, so the notes of every
   // channel together, in one control sweep, are at most that many.
   VC_RUN_TOTAL(oscillatorCount)
@@ -199,10 +204,11 @@ void MidiChannel::HandleControl() {
     midiNote->HandleControl();
     if (midiNote->envelope.IsIdle()) {
       _idleNotes.push(midiNote);
-      VC_COST(oscillatorCount) _midiNotes.erase(i--); // shifts at most oscillatorCount pointers
-      continue;
+    } else {
+      *keep++ = midiNote;
     }
   }
+  _midiNotes.erase(keep, _midiNotes.end());
 }
 
 void MidiChannel::SetPitchBendRange(uint8_t semitones) {
