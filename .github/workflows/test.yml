@@ -45,7 +45,10 @@ jobs:
         run: test/cxx-cost/run.sh report
       - name: ISR-path cost budget
         if: hashFiles('budgets/isr-cost.json') != ''
-        run: test/cxx-cost/run.sh check
+        # On a PR, also fail if any budget is looser than on the base branch.
+        env:
+          BASE: ${{ github.base_ref }}
+        run: test/cxx-cost/run.sh check ${BASE:+--against "origin/${BASE}"}
       - name: Upload cost report
         if: always()
         uses: actions/upload-artifact@v7

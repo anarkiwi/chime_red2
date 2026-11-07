@@ -1,13 +1,15 @@
 #!/bin/bash
 # Bound the worst-case cost of the synth's ISR-path entry points with
 # virtuous-cycles' vc-cxx-cost (clang LibTooling, run in Docker) and ratchet it
-# against the committed budgets/. Usage: test/cxx-cost/run.sh [check|tighten|report]
+# against the committed budgets/. Usage: test/cxx-cost/run.sh [check|tighten|report] [args...]
+# e.g. `check --against origin/main` also fails if a budget was loosened since main.
 # Needs docker, git, python3>=3.11 and `pip install virtuous-cycles` at the same ref.
 set -euo pipefail
 
 VC_REF=${VC_REF:-v0.3.0}               # virtuous-cycles release tag (keep in sync with CI)
 FIXEDPOINTS_REF=${FIXEDPOINTS_REF:-v1.1.2}
 cmd=${1:-check}
+[ "$#" -eq 0 ] || shift
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="${root}/.work"
@@ -44,4 +46,4 @@ docker run --rm -v "${root}:${root}" -w "${root}" vc-cxx-cost \
   --entry 'CRIO::handlePulseOff' --entry 'CRIO::handleLongPulse' \
   -o "${work}/cxx-cost.json"
 
-virtuous-cycles "${cmd}"
+virtuous-cycles "${cmd}" "$@"
