@@ -379,11 +379,11 @@ MidiNote *CRMidi::GetFreeNote() {
 }
 
 void CRMidi::ReturnFreeNote(MidiNote *midiNote) {
-  for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
-    Oscillator *oscillator = *o;
-    _oscillatorChannelMap[oscillator->index] = NULL;
-  }
-  midiNote->Reset();
+  // MidiChannel::NotesExpire has already returned the note's oscillators and
+  // Reset() it (MidiNote::ResetOscillators), so there is nothing left to undo here.
+  // _oscillatorChannelMap is deliberately not cleared: a freed oscillator keeps the
+  // channel it last sounded on, which keeps Modulate (no null check) safe if a
+  // pulse is already scheduled for it (see TestModulateOnFreedVoice).
   _freeMidiNotes.push(midiNote);
 }
 

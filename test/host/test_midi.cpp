@@ -1078,6 +1078,172 @@ void TestSustainZeroFreesAfterDecay() {
         "sustain>0 note should free after note-off, got %d", AudibleCount(oc));
 }
 
+// Note expiry (CRMidi::HandleControl case 1 -> ExpireNotes) must hand back both
+// the note's oscillators and the note itself. Churn a full pool of chords
+// across several channels: if any voice or note were leaked, a later chord
+// could not fill the pool again.
+void TestExpiryRecyclesPools() {
+  std::printf(
+      "[expire] expired notes return every voice and note to the pool\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  for (uint8_t ch = 1; ch <= 3; ++ch) {
+    crmidi.handleControlChange(ch, 72, 1); // short release
+  }
+  for (int round = 0; round < 6; ++round) {
+    const uint8_t ch = 1 + round % 3;
+    for (uint8_t n = 40; n < 40 + oscillatorCount; ++n) {
+      crmidi.handleNoteOn(ch, n, 100);
+    }
+    CHECK(AudibleCount(oc) == oscillatorCount,
+          "round %d: a full chord should sound %d voices, got %d", round,
+          oscillatorCount, AudibleCount(oc));
+    for (uint8_t n = 40; n < 40 + oscillatorCount; ++n) {
+      crmidi.handleNoteOff(ch, n);
+    }
+    RunControl(crmidi, 200);
+    CHECK(AudibleCount(oc) == 0, "round %d: %d voices left after expiry", round,
+          AudibleCount(oc));
+  }
+}
+
+// Notes on several channels that expire in the same control sweep are all
+// returned, whichever channel they were on.
+void TestExpiryAcrossChannels() {
+  std::printf("[expire] notes on different channels expire in one sweep\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  for (uint8_t ch = 1; ch <= 4; ++ch) {
+    crmidi.handleControlChange(ch, 72, 1);
+    for (uint8_t i = 0; i < 4; ++i) {
+      crmidi.handleNoteOn(ch, 50 + 4 * ch + i, 100);
+    }
+  }
+  CHECK(AudibleCount(oc) == oscillatorCount,
+        "setup: 4 channels x 4 notes should fill the pool, got %d",
+        AudibleCount(oc));
+  for (uint8_t ch = 1; ch <= 4; ++ch) {
+    for (uint8_t i = 0; i < 4; ++i) {
+      crmidi.handleNoteOff(ch, 50 + 4 * ch + i);
+    }
+  }
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 0, "%d voices left after a multi-channel expiry",
+        AudibleCount(oc));
+  // Every note and voice is free again: a full chord on a different channel
+  // fills the pool.
+  for (uint8_t n = 60; n < 60 + oscillatorCount; ++n) {
+    crmidi.handleNoteOn(5, n, 100);
+  }
+  CHECK(AudibleCount(oc) == oscillatorCount,
+        "refill after expiry: expected %d voices, got %d", oscillatorCount,
+        AudibleCount(oc));
+}
+
+// An expired note is reset before it is reused: the next note to take it starts
+// its envelope from the beginning, not from where the old note left off. (The
+// free-note pool is a stack, so the note just returned is the next one issued.)
+void TestExpiredNoteIsReset() {
+  std::printf("[expire] a recycled note starts from a clean state\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  crmidi.handleControlChange(1, 73, 1);  // attack
+  crmidi.handleControlChange(1, 75, 1);  // decay
+  crmidi.handleControlChange(1, 24, 64); // sustain
+  crmidi.handleControlChange(1, 72, 1);  // release
+  crmidi.handleNoteOn(1, 60, 100);
+  RunControl(crmidi, 60);
+  Oscillator *first = FirstAudible(oc);
+  CHECK(first != NULL && static_cast<double>(first->envelope->level) > 0.0,
+        "setup: the held note's envelope should have risen above 0");
+  crmidi.handleNoteOff(1, 60);
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 0, "setup: note should have expired, got %d voices",
+        AudibleCount(oc));
+
+  crmidi.handleControlChange(2, 73, 127); // very slow attack
+  crmidi.handleNoteOn(2, 62, 100);
+  Oscillator *o = FirstAudible(oc);
+  CHECK(o != NULL && o->hzInv == pitchToHzInv[62],
+        "recycled note should sound its own pitch");
+  CHECK(o != NULL && static_cast<double>(o->envelope->level) == 0.0,
+        "recycled note's envelope should start at 0, got %.3f",
+        o ? static_cast<double>(o->envelope->level) : -1.0);
+}
+
+// A recycled note starts with no voices. If it kept the list from its last
+// life, its next note on would re-stamp those oscillators (audible, envelope)
+// even though they now belong to another note. Make two notes expire, then
+// reuse them at once: a two-voice note takes one, a single-voice note the
+// other.
+void TestRecycledNoteHasNoStaleVoices() {
+  std::printf(
+      "[expire] a recycled note does not touch another note's voices\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  crmidi.handleControlChange(1, 72, 1); // short release
+  crmidi.handleNoteOn(1, 60, 100);
+  crmidi.handleNoteOn(1, 64, 100);
+  crmidi.handleNoteOff(1, 60);
+  crmidi.handleNoteOff(1, 64);
+  RunControl(crmidi, 200);
+  CHECK(AudibleCount(oc) == 0, "setup: both notes should have expired, got %d",
+        AudibleCount(oc));
+
+  crmidi.handleControlChange(2, 95, 70); // two voices per note
+  crmidi.handleNoteOn(2, 70, 100);
+  Oscillator *pair[2] = {NULL, NULL};
+  int found = 0;
+  for (uint8_t i = 0; i < oscillatorCount && found < 2; ++i) {
+    if (oc.TestOsc(i)->audible) {
+      pair[found++] = oc.TestOsc(i);
+    }
+  }
+  CHECK(found == 2, "setup: the detuned note should sound 2 voices, got %d",
+        found);
+  crmidi.handleNoteOn(3, 72, 100);
+  CHECK(AudibleCount(oc) == 3, "expected 3 voices in all, got %d",
+        AudibleCount(oc));
+  if (found == 2) {
+    CHECK(pair[0]->envelope == pair[1]->envelope,
+          "the detuned note's voices lost their shared envelope: a later note "
+          "re-stamped one of them");
+    for (uint8_t i = 0; i < oscillatorCount; ++i) {
+      Oscillator *o = oc.TestOsc(i);
+      if (o->audible && o != pair[0] && o != pair[1]) {
+        CHECK(o->envelope != pair[0]->envelope,
+              "the third voice shares the detuned note's envelope");
+      }
+    }
+  }
+}
+
+// A voice that has just been freed is still safe to hand to Modulate: it keeps
+// the channel it last sounded on. Modulate does not check for a missing
+// channel, so this is relied on if a pulse is already scheduled when the note
+// expires.
+void TestModulateOnFreedVoice() {
+  std::printf("[expire] Modulate stays safe on a just-freed voice\n");
+  OscillatorController oc;
+  TestCRIO crio;
+  CRMidi crmidi(&oc, &crio);
+  crmidi.handleControlChange(1, 72, 1);
+  crmidi.handleNoteOn(1, 60, 100);
+  Oscillator *voice = FirstAudible(oc);
+  CHECK(voice != NULL, "setup: note on should sound");
+  crmidi.handleNoteOff(1, 60);
+  RunControl(crmidi, 200);
+  CHECK(voice != NULL && !voice->audible, "setup: voice should be freed");
+  if (voice != NULL) {
+    CHECK(crmidi.Modulate(voice) >= cr_fp_t(0),
+          "Modulate on a freed voice should return a pulse width");
+  }
+}
+
 } // namespace
 
 int main() {
@@ -1095,6 +1261,11 @@ int main() {
   TestPercussionChannel();
   TestEnvelopeAdsr();
   TestSustainZeroFreesAfterDecay();
+  TestExpiryRecyclesPools();
+  TestExpiryAcrossChannels();
+  TestExpiredNoteIsReset();
+  TestRecycledNoteHasNoStaleVoices();
+  TestModulateOnFreedVoice();
   TestSchedulerAndLfoTick();
   TestModulation();
   TestControlChangeHandling();

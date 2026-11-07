@@ -13,7 +13,7 @@
   "CRIO::handleShortPulse:unbounded": 0.0,
   "CRIO::schedulePulse:cost": 50.0,
   "CRIO::schedulePulse:unbounded": 0.0,
-  "CRMidi::HandleControl:cost": 151236.0,
+  "CRMidi::HandleControl:cost": 90036.0,
   "CRMidi::HandleControl:degree:midiChannelStorage": 1.0,
   "CRMidi::HandleControl:degree:oscillatorCount": 2.0,
   "CRMidi::HandleControl:unbounded": 0.0,
