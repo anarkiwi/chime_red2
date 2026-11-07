@@ -21,8 +21,6 @@ MidiNote::MidiNote() {
 };
 
 void MidiNote::ResetOscillators(OscillatorController *oc) {
-  // A note holds at most oscillatorCount oscillators.
-  VC_BOUND(oscillatorCount)
   for (OscillatorDeque::const_iterator o = oscillators.begin(); o != oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oc->ReturnFreeOscillator(oscillator);

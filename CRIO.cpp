@@ -45,10 +45,9 @@ inline void CRIO::pulseOff() {
 }
 
 bool CRIO::handlePulse() {
-  // Dispatches to handleNoPulse/ShortPulse/PulseOff/LongPulse. 125 is the costliest
-  // (handleShortPulse); those four are ratcheted as entries in test/cxx-cost/run.sh,
-  // so growth past this figure shows up as a budget failure there.
-  VC_COST(125) return (this->*handlePulsePtr)();
+  // The pointer is one of these four; the analysis costs the call as the costliest.
+  VC_TARGETS(CRIO::handleNoPulse, CRIO::handleShortPulse, CRIO::handlePulseOff, CRIO::handleLongPulse)
+  return (this->*handlePulsePtr)();
 }
 
 bool CRIO::handlePulseOff() {

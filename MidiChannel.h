@@ -13,6 +13,7 @@
 #include "Oscillator.h"
 #include "OscillatorController.h"
 #include "MidiNote.h"
+#include "cr_cost.h"
 
 typedef std::vector<MidiNote*> MidiNoteDeque;
 
@@ -164,7 +165,8 @@ class MidiChannel {
     cr_fp_t _FmDepth() const { return midiValMap[fmIndex] * fmMaxDepth; }
     void _StampFM(MidiNote *midiNote);
     void _AddOscillatorToNote(cr_hzinv_t hz, MidiNote *midiNote, OscillatorController *oc, int periodOffset);
-    MidiNoteDeque _midiNotes;
+    // All channels draw on one pool of oscillatorCount notes, so no channel has more.
+    VC_SIZE(oscillatorCount) MidiNoteDeque _midiNotes;
     std::stack<MidiNote*> _idleNotes;
     MidiNote *_noteMap[maxMidiPitch+1];
     PitchBender _pitchBender = PitchBender();

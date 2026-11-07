@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install virtuous-cycles
-        run: pip install git+https://github.com/anarkiwi/virtuous-cycles@v0.3.0
+        run: pip install git+https://github.com/anarkiwi/virtuous-cycles@v0.4.0
       - name: ISR-path cost report (no budget yet)
         if: hashFiles('budgets/isr-cost.json') == ''
         run: test/cxx-cost/run.sh report

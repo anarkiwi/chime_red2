@@ -6,7 +6,7 @@
 # Needs docker, git, python3>=3.11 and `pip install virtuous-cycles` at the same ref.
 set -euo pipefail
 
-VC_REF=${VC_REF:-v0.3.0}               # virtuous-cycles release tag (keep in sync with CI)
+VC_REF=${VC_REF:-v0.4.0}               # virtuous-cycles release tag (keep in sync with CI)
 FIXEDPOINTS_REF=${FIXEDPOINTS_REF:-v1.1.2}
 cmd=${1:-check}
 [ "$#" -eq 0 ] || shift
@@ -16,8 +16,14 @@ work="${root}/.work"
 mkdir -p "${work}"
 cd "${root}"
 
-docker build -q --target cxx-runtime -t vc-cxx-cost \
-  "https://github.com/anarkiwi/virtuous-cycles.git#${VC_REF}"
+# The release's published image if it can be pulled, else built from the tag.
+image="ghcr.io/anarkiwi/virtuous-cycles/cxx-cost:${VC_REF}"
+if docker pull -q "${image}" >/dev/null 2>&1; then
+  docker tag "${image}" vc-cxx-cost
+else
+  docker build -q --target cxx-runtime -t vc-cxx-cost \
+    "https://github.com/anarkiwi/virtuous-cycles.git#${VC_REF}"
+fi
 [ -d "${work}/FixedPoints" ] || git clone -q --depth 1 --branch "${FIXEDPOINTS_REF}" \
   https://github.com/Pharap/FixedPointsArduino.git "${work}/FixedPoints"
 # clang rejects FixedPoints' in-class `static constexpr SFixed Pi = ...` (the
@@ -39,7 +45,7 @@ PY
 
 # Entry points: everything the master-clock ISR runs (chime_red2.ino nextISR).
 docker run --rm -v "${root}:${root}" -w "${root}" vc-cxx-cost \
-  -p "${work}" --root "${root}" \
+  -p "${work}" --root "${root}" --breakdown \
   --entry 'OscillatorController::Triggered' --entry 'CRMidi::HandleControl' \
   --entry 'CRMidi::Modulate' --entry 'CRIO::handlePulse' --entry 'CRIO::schedulePulse' \
   --entry 'CRIO::handleNoPulse' --entry 'CRIO::handleShortPulse' \

@@ -12,6 +12,8 @@
 #else
 #define VC_BOUND(...)
 #define VC_COST(...)
+#define VC_SIZE(...)
+#define VC_TARGETS(...)
 #endif
 
 #endif

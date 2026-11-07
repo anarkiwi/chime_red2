@@ -76,12 +76,9 @@ inline MidiNote *MidiChannel::LookupNote(uint8_t note) {
 
 void MidiChannel::RetuneNotes(OscillatorController *oc) {
   int periodOffset = int(detuneAbs) - int(DEFAULT_DETUNE);
-  // All channels share a pool of oscillatorCount notes.
-  VC_BOUND(oscillatorCount)
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     cr_hzinv_t hz = BendHz(midiNote, midiTuneCents[detune]);
-    VC_BOUND(oscillatorCount) // a note holds at most oscillatorCount oscillators
     for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
       Oscillator *oscillator = *o;
       if (o == midiNote->oscillators.begin()) {
@@ -123,8 +120,6 @@ void MidiChannel::_StampFM(MidiNote *midiNote) {
   // note on a CC or pitch-bend change is safe.
   const cr_fp_t depth = _FmDepth();
   const uint16_t step = _FmPhaseStep();
-  // A note holds at most oscillatorCount oscillators.
-  VC_BOUND(oscillatorCount)
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->modEnvelope = &(midiNote->modEnvelope);
