@@ -79,6 +79,9 @@ void MidiChannel::RetuneNotes(OscillatorController *oc) {
   for (MidiNoteDeque::const_iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     cr_hzinv_t hz = BendHz(midiNote, midiTuneCents[detune]);
+    // An oscillator belongs to at most one note, so the oscillators of all the
+    // channel's notes together are at most oscillatorCount.
+    VC_RUN_TOTAL(oscillatorCount)
     for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
       Oscillator *oscillator = *o;
       if (o == midiNote->oscillators.begin()) {
@@ -120,6 +123,8 @@ void MidiChannel::_StampFM(MidiNote *midiNote) {
   // note on a CC or pitch-bend change is safe.
   const cr_fp_t depth = _FmDepth();
   const uint16_t step = _FmPhaseStep();
+  // Called per note: the oscillators of every note together are at most the pool.
+  VC_RUN_TOTAL(oscillatorCount)
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oscillator->modEnvelope = &(midiNote->modEnvelope);
@@ -186,8 +191,9 @@ MidiNote *MidiChannel::NotesExpire(OscillatorController *oc) {
 }
 
 void MidiChannel::HandleControl() {
-  // All channels share a pool of oscillatorCount notes.
-  VC_BOUND(oscillatorCount)
+  // All channels share a pool of oscillatorCount notes, so the notes of every
+  // channel together, in one control sweep, are at most that many.
+  VC_RUN_TOTAL(oscillatorCount)
   for (MidiNoteDeque::iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     midiNote->HandleControl();

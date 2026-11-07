@@ -6,7 +6,7 @@
 # Needs docker, git, python3>=3.11 and `pip install virtuous-cycles` at the same ref.
 set -euo pipefail
 
-VC_REF=${VC_REF:-v0.4.0}               # virtuous-cycles release tag (keep in sync with CI)
+VC_REF=${VC_REF:-v0.5.0}               # virtuous-cycles release tag (keep in sync with CI)
 FIXEDPOINTS_REF=${FIXEDPOINTS_REF:-v1.1.2}
 cmd=${1:-check}
 [ "$#" -eq 0 ] || shift
