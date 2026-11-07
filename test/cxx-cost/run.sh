@@ -18,6 +18,11 @@ docker build -q --target cxx-runtime -t vc-cxx-cost \
   "https://github.com/anarkiwi/virtuous-cycles.git#${VC_REF}"
 [ -d "${work}/FixedPoints" ] || git clone -q --depth 1 --branch "${FIXEDPOINTS_REF}" \
   https://github.com/Pharap/FixedPointsArduino.git "${work}/FixedPoints"
+# clang rejects FixedPoints' in-class `static constexpr SFixed Pi = ...` (the
+# class is incomplete, so non-literal); gcc accepts it. The synth uses none of
+# these constants, so drop them from this analysis-only copy. Idempotent.
+sed -i -E '/static constexpr [SU]Fixed (Epsilon|MinValue|MaxValue|Pi|E|Phi|Tau) =/d' \
+  "${work}"/FixedPoints/src/FixedPoints/{SFixed,UFixed}.h
 
 # Compilation database for the device sources, as the host tests build them.
 python3 - "${root}" "${work}" <<'PY'
