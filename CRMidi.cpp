@@ -10,10 +10,11 @@
 #include "CRMidi.h"
 #include "Oscillator.h"
 #include "constants.h"
+#include "cr_cost.h"
 
 #define GET_CHAN(channel) _midiChannelMap[channel]
 #define FOR_ALL_CHAN(channel_func) \
-  { for (MidiChannel *midiChannel = _midiChannels; midiChannel < _midiChannels + midiChannelStorage; ++midiChannel) { channel_func; } }
+  { VC_BOUND(midiChannelStorage) for (MidiChannel *midiChannel = _midiChannels; midiChannel < _midiChannels + midiChannelStorage; ++midiChannel) { channel_func; } }
 #define MIDI_TO_HZ(value) (midiValMap[value] * cr_fp_t(lfoMaxHz))
 
 bool CRMidi::setCC(uint8_t *value, uint8_t newValue) {
@@ -357,6 +358,8 @@ void CRMidi::handleProgramChange(byte channel, byte number) {
 }
 
 void CRMidi::ExpireNotes(MidiChannel *midiChannel) {
+  // Each pass retires one idle note; a channel has at most oscillatorCount notes.
+  VC_BOUND(oscillatorCount)
   for (;;) {
     MidiNote *midiNote = midiChannel->NotesExpire(_oc);
     if (midiNote == NULL) {
@@ -376,6 +379,8 @@ MidiNote *CRMidi::GetFreeNote() {
 }
 
 void CRMidi::ReturnFreeNote(MidiNote *midiNote) {
+  // A note holds at most oscillatorCount oscillators.
+  VC_BOUND(oscillatorCount)
   for (OscillatorDeque::const_iterator o = midiNote->oscillators.begin(); o != midiNote->oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     _oscillatorChannelMap[oscillator->index] = NULL;

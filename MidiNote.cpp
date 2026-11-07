@@ -11,6 +11,7 @@
 #include "Oscillator.h"
 #include "OscillatorController.h"
 #include "constants.h"
+#include "cr_cost.h"
 
 MidiNote::MidiNote() {
   // Amplitude envelope drives coil pulse width and uses a linear ramp; the FM
@@ -20,6 +21,8 @@ MidiNote::MidiNote() {
 };
 
 void MidiNote::ResetOscillators(OscillatorController *oc) {
+  // A note holds at most oscillatorCount oscillators.
+  VC_BOUND(oscillatorCount)
   for (OscillatorDeque::const_iterator o = oscillators.begin(); o != oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oc->ReturnFreeOscillator(oscillator);

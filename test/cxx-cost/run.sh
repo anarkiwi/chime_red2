@@ -28,7 +28,7 @@ sed -i -E '/static constexpr [SU]Fixed (Epsilon|MinValue|MaxValue|Pi|E|Phi|Tau) 
 python3 - "${root}" "${work}" <<'PY'
 import json, pathlib, sys
 root, work = map(pathlib.Path, sys.argv[1:])
-flags = f"-std=c++17 -DCR_HOST_TEST -I{root} -I{root}/test/host/stubs -I{work}/FixedPoints/src"
+flags = f"-std=c++17 -DCR_HOST_TEST -DVC_COST_ANALYSIS -I/usr/local/include -I{root} -I{root}/test/host/stubs -I{work}/FixedPoints/src"
 srcs = "CRMidi MidiChannel OscillatorController MidiNote Lfo AdsrEnvelope Oscillator CRIO".split()
 db = [{"directory": str(root), "file": f"{root}/{s}.cpp",
        "command": f"c++ {flags} -c {root}/{s}.cpp"} for s in srcs]
@@ -40,6 +40,8 @@ docker run --rm -v "${root}:${root}" -w "${root}" vc-cxx-cost \
   -p "${work}" --root "${root}" \
   --entry 'OscillatorController::Triggered' --entry 'CRMidi::HandleControl' \
   --entry 'CRMidi::Modulate' --entry 'CRIO::handlePulse' --entry 'CRIO::schedulePulse' \
+  --entry 'CRIO::handleNoPulse' --entry 'CRIO::handleShortPulse' \
+  --entry 'CRIO::handlePulseOff' --entry 'CRIO::handleLongPulse' \
   -o "${work}/cxx-cost.json"
 
 virtuous-cycles "${cmd}"

@@ -9,11 +9,12 @@
 
 #include "OscillatorController.h"
 #include "constants.h"
+#include "cr_cost.h"
 
 #define FOR_ALL_OSC(osc_func) \
-  { for (Oscillator *oscillator = _oscillators; oscillator < _oscillators + oscillatorCount; ++oscillator) { osc_func; } }
+  { VC_BOUND(oscillatorCount) for (Oscillator *oscillator = _oscillators; oscillator < _oscillators + oscillatorCount; ++oscillator) { osc_func; } }
 #define FOR_ALL_LFO(lfo_func) \
-  { for (Lfo *lfo = _lfos; lfo < _lfos + lfoCount; ++lfo) { lfo_func; } }
+  { VC_BOUND(lfoCount) for (Lfo *lfo = _lfos; lfo < _lfos + lfoCount; ++lfo) { lfo_func; } }
 
 // ISR work-bound instrumentation (host scheduling regression test only).
 #ifdef CR_HOST_TEST

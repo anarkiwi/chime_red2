@@ -8,6 +8,7 @@
 
 #include "pins.h"
 #include "CRIO.h"
+#include "cr_cost.h"
 
 // TODO: DigitalIO library doesn't yet support Due.
 #include "CRDigitalPin.h"
@@ -44,7 +45,10 @@ inline void CRIO::pulseOff() {
 }
 
 bool CRIO::handlePulse() {
-  return (this->*handlePulsePtr)();
+  // Dispatches to handleNoPulse/ShortPulse/PulseOff/LongPulse. 125 is the costliest
+  // (handleShortPulse); those four are ratcheted as entries in test/cxx-cost/run.sh,
+  // so growth past this figure shows up as a budget failure there.
+  VC_COST(125) return (this->*handlePulsePtr)();
 }
 
 bool CRIO::handlePulseOff() {
