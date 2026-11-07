@@ -5,7 +5,9 @@
 #ifndef CR_COST_H
 #define CR_COST_H
 
-#ifdef VC_COST_ANALYSIS
+// cppcheck (which tries every #ifdef configuration) defines __CPPCHECK__ and
+// has no <vc/cost.h>, so it takes the empty-macro branch.
+#if defined(VC_COST_ANALYSIS) && !defined(__CPPCHECK__)
 #include <vc/cost.h>
 #else
 #define VC_BOUND(...)
