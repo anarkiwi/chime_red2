@@ -46,3 +46,10 @@ jobs:
       - name: ISR-path cost budget
         if: hashFiles('budgets/isr-cost.json') != ''
         run: test/cxx-cost/run.sh check
+      - name: Upload cost report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cxx-cost-report
+          path: .work/cxx-cost.json
+          if-no-files-found: warn
