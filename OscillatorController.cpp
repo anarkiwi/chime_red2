@@ -9,6 +9,7 @@
 
 #include "OscillatorController.h"
 #include "constants.h"
+#include "cr_cost.h"
 
 #define FOR_ALL_OSC(osc_func) \
   { for (Oscillator *oscillator = _oscillators; oscillator < _oscillators + oscillatorCount; ++oscillator) { osc_func; } }

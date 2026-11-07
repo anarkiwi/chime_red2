@@ -1,0 +1,8 @@
+# Ratchet on worst-case ISR-path cost; see test/cxx-cost/run.sh.
+[[metric]]
+name = "isr-cost"
+adapter = "cxx-cost"
+budget = "budgets/isr-cost.json"
+[metric.options]
+report = ".work/cxx-cost.json"
+default = 1

@@ -8,6 +8,7 @@
 
 
 #include "MidiChannel.h"
+#include "cr_cost.h"
 
 #define DEFAULT_DETUNE  64
 
@@ -173,6 +174,7 @@ bool MidiChannel::ResetNote(uint8_t note) {
 }
 
 MidiNote *MidiChannel::NotesExpire(OscillatorController *oc) {
+  VC_BOUND(1) // returns on its first pass: at most one note per call
   while (!_idleNotes.empty()) {
     MidiNote *midiNote = _idleNotes.top();
     _idleNotes.pop();
@@ -184,12 +186,14 @@ MidiNote *MidiChannel::NotesExpire(OscillatorController *oc) {
 }
 
 void MidiChannel::HandleControl() {
+  // All channels share a pool of oscillatorCount notes.
+  VC_BOUND(oscillatorCount)
   for (MidiNoteDeque::iterator i = _midiNotes.begin(); i != _midiNotes.end(); ++i) {
     MidiNote *midiNote = *i;
     midiNote->HandleControl();
     if (midiNote->envelope.IsIdle()) {
       _idleNotes.push(midiNote);
-      _midiNotes.erase(i--);
+      VC_COST(oscillatorCount) _midiNotes.erase(i--); // shifts at most oscillatorCount pointers
       continue;
     }
   }

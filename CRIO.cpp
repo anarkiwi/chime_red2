@@ -8,6 +8,7 @@
 
 #include "pins.h"
 #include "CRIO.h"
+#include "cr_cost.h"
 
 // TODO: DigitalIO library doesn't yet support Due.
 #include "CRDigitalPin.h"
@@ -44,6 +45,8 @@ inline void CRIO::pulseOff() {
 }
 
 bool CRIO::handlePulse() {
+  // The pointer is one of these four; the analysis costs the call as the costliest.
+  VC_TARGETS(CRIO::handleNoPulse, CRIO::handleShortPulse, CRIO::handlePulseOff, CRIO::handleLongPulse)
   return (this->*handlePulsePtr)();
 }
 

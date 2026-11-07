@@ -11,6 +11,7 @@
 #include "Oscillator.h"
 #include "OscillatorController.h"
 #include "constants.h"
+#include "cr_cost.h"
 
 MidiNote::MidiNote() {
   // Amplitude envelope drives coil pulse width and uses a linear ramp; the FM

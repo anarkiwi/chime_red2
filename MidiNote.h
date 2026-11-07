@@ -12,6 +12,7 @@
 
 #include "Oscillator.h"
 #include "OscillatorController.h"
+#include "cr_cost.h"
 
 typedef std::deque<Oscillator*> OscillatorDeque;
 
@@ -23,7 +24,9 @@ class MidiNote {
   void HandleControl();
   uint8_t pitch;
   cr_fp_t ageMs;
-  OscillatorDeque oscillators;
+  // A note holds at most oscillatorCount oscillators (bounds the loops over it in
+  // the cost analysis, test/cxx-cost).
+  VC_SIZE(oscillatorCount) OscillatorDeque oscillators;
   AdsrEnvelope envelope;
   // Independent envelope shaping the FM modulation index over the note's life
   // (the bell loses brightness faster than loudness). Advances with `envelope`

@@ -1,0 +1,28 @@
+{
+ "direction": "lower",
+ "budgets": {
+  "CRIO::handleLongPulse:cost": 66.0,
+  "CRIO::handleLongPulse:unbounded": 0.0,
+  "CRIO::handleNoPulse:cost": 3.0,
+  "CRIO::handleNoPulse:unbounded": 0.0,
+  "CRIO::handlePulse:cost": 127.0,
+  "CRIO::handlePulse:unbounded": 0.0,
+  "CRIO::handlePulseOff:cost": 64.0,
+  "CRIO::handlePulseOff:unbounded": 0.0,
+  "CRIO::handleShortPulse:cost": 125.0,
+  "CRIO::handleShortPulse:unbounded": 0.0,
+  "CRIO::schedulePulse:cost": 50.0,
+  "CRIO::schedulePulse:unbounded": 0.0,
+  "CRMidi::HandleControl:cost": 90036.0,
+  "CRMidi::HandleControl:degree:midiChannelStorage": 1.0,
+  "CRMidi::HandleControl:degree:oscillatorCount": 2.0,
+  "CRMidi::HandleControl:unbounded": 0.0,
+  "CRMidi::Modulate:cost": 69967.0,
+  "CRMidi::Modulate:degree:oscillatorCount": 2.0,
+  "CRMidi::Modulate:unbounded": 0.0,
+  "OscillatorController::Triggered:cost": 1867.0,
+  "OscillatorController::Triggered:degree:lfoCount": 1.0,
+  "OscillatorController::Triggered:degree:oscillatorCount": 1.0,
+  "OscillatorController::Triggered:unbounded": 0.0
+ }
+}
