@@ -21,6 +21,8 @@ MidiNote::MidiNote() {
 };
 
 void MidiNote::ResetOscillators(OscillatorController *oc) {
+  // Called per expired note: their oscillators together are at most the pool.
+  VC_RUN_TOTAL(oscillatorCount)
   for (OscillatorDeque::const_iterator o = oscillators.begin(); o != oscillators.end(); ++o) {
     Oscillator *oscillator = *o;
     oc->ReturnFreeOscillator(oscillator);

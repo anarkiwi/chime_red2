@@ -13,6 +13,8 @@
 #define VC_BOUND(...)
 #define VC_COST(...)
 #define VC_SIZE(...)
+#define VC_TOTAL(...)
+#define VC_RUN_TOTAL(...)
 #define VC_TARGETS(...)
 #endif
 

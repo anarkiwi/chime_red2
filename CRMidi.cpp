@@ -358,8 +358,9 @@ void CRMidi::handleProgramChange(byte channel, byte number) {
 }
 
 void CRMidi::ExpireNotes(MidiChannel *midiChannel) {
-  // Each pass retires one idle note; a channel has at most oscillatorCount notes.
-  VC_BOUND(oscillatorCount)
+  // Each pass retires one idle note, and all channels draw on one pool of
+  // oscillatorCount notes; each channel also makes one last pass that finds none.
+  VC_RUN_TOTAL(oscillatorCount + midiChannelStorage)
   for (;;) {
     MidiNote *midiNote = midiChannel->NotesExpire(_oc);
     if (midiNote == NULL) {
